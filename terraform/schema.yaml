@@ -1,0 +1,155 @@
+title: "OCI TurboInference Stack"
+description: "Deploy a GPU or CPU inference instance on OCI with one click."
+schemaVersion: 1.1.0
+version: "1.0.0"
+locale: "en"
+
+variableGroups:
+  - title: "Model Selection"
+    description: "Choose the model to deploy."
+    variables:
+      - model_selection
+      - custom_model_url
+
+  - title: "Instance Configuration"
+    description: "Compute shape and sizing."
+    variables:
+      - compartment_ocid
+      - region
+      - availability_domain_number
+      - instance_type
+      - cpu_ocpus
+      - cpu_ram_gb
+      - boot_volume_gb
+
+  - title: "Network & Security"
+    description: "SSH access and API networking."
+    variables:
+      - ssh_public_key
+      - api_allowed_cidr
+      - api_port
+
+  - title: "Coding Agent"
+    description: "Optional Pi coding agent installation."
+    variables:
+      - install_pi_agent
+
+variables:
+  compartment_ocid:
+    type: oci:identity:compartment:id
+    title: "Compartment"
+    description: "Compartment to deploy resources into."
+    required: true
+
+  region:
+    type: oci:identity:region:name
+    title: "Region"
+    description: "OCI region for deployment."
+    required: true
+
+  availability_domain_number:
+    type: number
+    title: "Availability Domain"
+    description: "AD number (1-based)."
+    default: 1
+    minimum: 1
+    maximum: 3
+    required: true
+
+  model_selection:
+    type: enum
+    title: "Model"
+    description: "Select a curated model or choose 'custom' to provide your own."
+    default: "Qwen/Qwen3.5-35B-A3B"
+    enum:
+      - "Qwen/Qwen3.5-35B-A3B"
+      - "Qwen/Qwen2.5-72B-Instruct-AWQ"
+      - "meta-llama/Llama-3.3-70B-Instruct"
+      - "meta-llama/Llama-3.1-8B-Instruct"
+      - "mistralai/Mistral-Small-24B-Instruct-2501"
+      - "mistralai/Mixtral-8x7B-Instruct-v0.1"
+      - "deepseek-ai/DeepSeek-R1-Distill-Llama-70B"
+      - "deepseek-ai/DeepSeek-R1-Distill-Qwen-32B"
+      - "nvidia/Llama-3.1-Nemotron-70B-Instruct-HF"
+      - "NousResearch/Meta-Llama-3.1-70B-Instruct"
+      - "custom"
+    required: true
+
+  custom_model_url:
+    type: string
+    title: "Custom Model URL"
+    description: "HuggingFace model ID or URL. Only used when Model is set to 'custom'."
+    default: ""
+    required: false
+    visible:
+      eq:
+        - model_selection
+        - "custom"
+
+  instance_type:
+    type: enum
+    title: "Instance Type"
+    description: "GPU (VM.GPU.A10.1) or CPU (VM.Standard.E5.Flex)."
+    default: "gpu"
+    enum:
+      - "gpu"
+      - "cpu"
+    required: true
+
+  cpu_ocpus:
+    type: number
+    title: "CPU OCPUs"
+    description: "Number of OCPUs (flex shapes only)."
+    default: 16
+    minimum: 1
+    maximum: 94
+    visible:
+      eq:
+        - instance_type
+        - "cpu"
+
+  cpu_ram_gb:
+    type: number
+    title: "RAM (GB)"
+    description: "Memory in GB (flex shapes only)."
+    default: 128
+    minimum: 1
+    maximum: 1049
+    visible:
+      eq:
+        - instance_type
+        - "cpu"
+
+  boot_volume_gb:
+    type: number
+    title: "Boot Volume (GB)"
+    description: "Boot volume size in GB."
+    default: 200
+    minimum: 50
+    maximum: 32768
+
+  ssh_public_key:
+    type: string
+    title: "SSH Public Key"
+    description: "Public key for SSH access to the instance."
+    required: true
+
+  api_allowed_cidr:
+    type: string
+    title: "API Allowed CIDR"
+    description: "CIDR block allowed to reach SSH and API ports."
+    default: "0.0.0.0/0"
+
+  api_port:
+    type: number
+    title: "API Port"
+    description: "Port for the inference API."
+    default: 8080
+    minimum: 1024
+    maximum: 65535
+
+  install_pi_agent:
+    type: boolean
+    title: "Install Pi Agent"
+    description: "Install the Pi coding agent alongside inference."
+    default: true

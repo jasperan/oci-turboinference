@@ -1,0 +1,29 @@
+#cloud-config
+
+package_update: true
+package_upgrade: true
+
+packages:
+  - git
+  - cmake
+  - gcc
+  - gcc-c++
+  - make
+  - python3-pip
+  - curl
+  - wget
+
+write_files:
+  - path: /opt/turboinference/setup-env.sh
+    permissions: "0755"
+    content: |
+      #!/bin/bash
+      export MODEL_ID="${model_id}"
+      export API_PORT="${api_port}"
+      export INSTALL_PI="${install_pi}"
+
+runcmd:
+  - mkdir -p /opt/turboinference
+  - git clone https://github.com/jasperan/oci-turboinference.git /opt/turboinference/repo
+  - source /opt/turboinference/setup-env.sh
+  - cd /opt/turboinference/repo && bash scripts/setup.sh
