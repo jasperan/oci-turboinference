@@ -1,0 +1,32 @@
+# Agent/skill directories (local only)
+.agents/
+.claude/
+.crush/
+.openhands/
+.serena/
+.pi/
+
+# Planning artifacts
+task_plan.md
+findings.md
+progress.md
+
+# Terraform
+terraform/.terraform/
+terraform/*.tfstate
+terraform/*.tfstate.backup
+terraform/*.tfplan
+terraform/.terraform.lock.hcl
+
+# Python
+__pycache__/
+*.pyc
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
+
+# OS
+.DS_Store
+*.swp
