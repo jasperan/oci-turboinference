@@ -1,0 +1,16 @@
+[Unit]
+Description=TurboInference LLM Server
+After=network.target
+
+[Service]
+Type=exec
+EnvironmentFile=/opt/turboinference/inference-env
+ExecStart=/opt/turboinference/repo/scripts/start-inference.sh /opt/turboinference/inference-config.json
+Restart=on-failure
+RestartSec=10
+StandardOutput=journal+console
+StandardError=journal+console
+WorkingDirectory=/opt/turboinference
+
+[Install]
+WantedBy=multi-user.target

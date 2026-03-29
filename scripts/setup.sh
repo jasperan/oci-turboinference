@@ -74,13 +74,22 @@ else
     echo "$LOG_PREFIX Step 6/7: Skipping Pi agent (INSTALL_PI=$INSTALL_PI)"
 fi
 
-# Step 7: Start inference server in background
-echo "$LOG_PREFIX Step 7/7: Starting inference server..."
-mkdir -p /var/log
-nohup bash "$SCRIPT_DIR/start-inference.sh" "$CONFIG_FILE" \
-    > /var/log/turboinference.log 2>&1 &
-INFERENCE_PID=$!
-echo "$LOG_PREFIX Inference server started (PID: $INFERENCE_PID)"
-echo "$LOG_PREFIX Logs: /var/log/turboinference.log"
+# Step 7: Start inference server via systemd
+echo "$LOG_PREFIX Step 7/7: Starting inference server via systemd..."
+
+# Write environment file for the systemd unit
+echo "API_PORT=$API_PORT" > "$OPT_DIR/inference-env"
+echo "$LOG_PREFIX Wrote $OPT_DIR/inference-env"
+
+# Install and start the systemd service
+cp "$SCRIPT_DIR/turboinference.service" /etc/systemd/system/
+systemctl daemon-reload
+systemctl enable turboinference
+systemctl start turboinference
+echo "$LOG_PREFIX systemd service started."
+
+# Block until the server is healthy
+API_PORT="$API_PORT" bash "$SCRIPT_DIR/wait-for-health.sh"
 
 echo "$LOG_PREFIX Setup complete."
+echo "$LOG_PREFIX API endpoint: http://localhost:${API_PORT}/v1"
