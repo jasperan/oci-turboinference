@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -e
+set -eo pipefail
 LOG_PREFIX="[install-llama-cpp]"
 
 INSTALL_DIR="/opt/llama.cpp"
@@ -23,6 +23,9 @@ fi
 if [ -d "$INSTALL_DIR" ]; then
     echo "$LOG_PREFIX $INSTALL_DIR already exists, pulling latest..."
     cd "$INSTALL_DIR" && git pull
+    # Clean stale build artifacts to avoid CMake cache issues
+    echo "$LOG_PREFIX Cleaning stale build directory..."
+    rm -rf build/
 else
     echo "$LOG_PREFIX Cloning llama.cpp..."
     git clone https://github.com/ggml-org/llama.cpp "$INSTALL_DIR"

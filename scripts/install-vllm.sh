@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -e
+set -eo pipefail
 LOG_PREFIX="[install-vllm]"
 
 if ! command -v nvidia-smi &>/dev/null; then

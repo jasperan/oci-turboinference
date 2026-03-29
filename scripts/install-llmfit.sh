@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -e
+set -eo pipefail
 LOG_PREFIX="[install-llmfit]"
 
 if command -v llmfit &>/dev/null; then
@@ -13,7 +13,15 @@ echo "$LOG_PREFIX Installing llmfit..."
 if ! command -v cargo &>/dev/null; then
     echo "$LOG_PREFIX Installing Rust toolchain..."
     curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-    source "$HOME/.cargo/env"
+
+    # Source cargo env from the correct location
+    if [ -f "$HOME/.cargo/env" ]; then
+        source "$HOME/.cargo/env"
+    elif [ -f "/root/.cargo/env" ]; then
+        source "/root/.cargo/env"
+    else
+        export PATH="$HOME/.cargo/bin:$PATH"
+    fi
 fi
 
 # Install build dependencies
@@ -34,9 +42,11 @@ cd "$LLMFIT_DIR"
 echo "$LOG_PREFIX Building llmfit (release)..."
 cargo build --release
 
-# Install binary
+# Install binary to /usr/local/bin so it's available to all users
 cp target/release/llmfit /usr/local/bin/llmfit
 chmod +x /usr/local/bin/llmfit
+ln -sf /usr/local/bin/llmfit /usr/bin/llmfit
+echo "$LOG_PREFIX Installed llmfit to /usr/local/bin/llmfit (symlinked to /usr/bin/llmfit)"
 
 # Cleanup
 rm -rf "$LLMFIT_DIR"

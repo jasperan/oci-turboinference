@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -e
+set -eo pipefail
 LOG_PREFIX="[install-pi-agent]"
 
 API_PORT="${API_PORT:-8080}"
