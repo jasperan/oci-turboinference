@@ -22,3 +22,8 @@ output "instance_type" {
   value       = var.instance_type
   description = "Instance type (gpu or cpu)."
 }
+
+output "api_endpoint_auth" {
+  description = "Authenticated API endpoint (if auth enabled)."
+  value       = var.enable_api_auth ? "http://${oci_core_instance.inference.public_ip}:8443/v1 (requires API key from /opt/turboinference/api-key)" : "N/A (auth disabled)"
+}

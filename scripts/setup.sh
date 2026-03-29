@@ -5,6 +5,7 @@ LOG_PREFIX="[setup]"
 MODEL_ID="${MODEL_ID:-Qwen/Qwen3.5-35B-A3B}"
 API_PORT="${API_PORT:-8080}"
 INSTALL_PI="${INSTALL_PI:-true}"
+ENABLE_API_AUTH="${ENABLE_API_AUTH:-false}"
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 OPT_DIR="/opt/turboinference"
@@ -72,6 +73,12 @@ if [ "$INSTALL_PI" = "true" ]; then
     API_PORT="$API_PORT" bash "$SCRIPT_DIR/install-pi-agent.sh"
 else
     echo "$LOG_PREFIX Step 6/7: Skipping Pi agent (INSTALL_PI=$INSTALL_PI)"
+fi
+
+# Step 6.5: API authentication
+if [ "$ENABLE_API_AUTH" = "true" ]; then
+    echo "$LOG_PREFIX Installing API authentication..."
+    API_PORT="$API_PORT" bash "$SCRIPT_DIR/install-nginx-auth.sh"
 fi
 
 # Step 7: Start inference server via systemd

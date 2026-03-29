@@ -21,6 +21,7 @@ write_files:
       export MODEL_ID="${model_id}"
       export API_PORT="${api_port}"
       export INSTALL_PI="${install_pi}"
+      export ENABLE_API_AUTH="${enable_api_auth}"
 
 runcmd:
   - mkdir -p /opt/turboinference
@@ -29,4 +30,5 @@ runcmd:
     export MODEL_ID="${model_id}"
     export API_PORT="${api_port}"
     export INSTALL_PI="${install_pi}"
+    export ENABLE_API_AUTH="${enable_api_auth}"
     cd /opt/turboinference/repo && bash scripts/setup.sh

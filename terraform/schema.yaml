@@ -28,6 +28,7 @@ variableGroups:
       - ssh_public_key
       - api_allowed_cidr
       - api_port
+      - enable_api_auth
 
   - title: "Coding Agent"
     description: "Optional Pi coding agent installation."
@@ -147,6 +148,12 @@ variables:
     default: 8080
     minimum: 1024
     maximum: 65535
+
+  enable_api_auth:
+    type: boolean
+    title: "Enable API Authentication"
+    description: "Enable API key authentication via nginx reverse proxy on port 8443."
+    default: false
 
   install_pi_agent:
     type: boolean

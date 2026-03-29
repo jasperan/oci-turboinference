@@ -78,3 +78,9 @@ variable "boot_volume_gb" {
   default     = 200
   description = "Boot volume size in GB."
 }
+
+variable "enable_api_auth" {
+  type        = bool
+  description = "Enable API key authentication via nginx reverse proxy."
+  default     = false
+}

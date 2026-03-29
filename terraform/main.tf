@@ -75,6 +75,18 @@ resource "oci_core_security_list" "main" {
       max = var.api_port
     }
   }
+
+  dynamic "ingress_security_rules" {
+    for_each = var.enable_api_auth ? [1] : []
+    content {
+      protocol = "6"
+      source   = var.api_allowed_cidr
+      tcp_options {
+        min = 8443
+        max = 8443
+      }
+    }
+  }
 }
 
 resource "oci_core_subnet" "public" {
@@ -116,9 +128,10 @@ resource "oci_core_instance" "inference" {
   metadata = {
     ssh_authorized_keys = var.ssh_public_key
     user_data = base64encode(templatefile("${path.module}/cloud-init.yaml", {
-      model_id    = local.model_id
-      api_port    = var.api_port
-      install_pi  = var.install_pi_agent
+      model_id        = local.model_id
+      api_port        = var.api_port
+      install_pi      = var.install_pi_agent
+      enable_api_auth = var.enable_api_auth
     }))
   }
 }
