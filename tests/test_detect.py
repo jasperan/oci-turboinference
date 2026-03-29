@@ -67,3 +67,71 @@ def test_detect_hardware_cpu_only(mock_run_cmd):
     assert info.gpu_model is None
     assert info.vram_gb == 0.0
     assert info.ram_gb > 60.0
+
+
+@patch("profiler.detect._run_cmd")
+def test_detect_hardware_empty_nvidia_output(mock_run_cmd):
+    """nvidia-smi returns empty string (not None). Should treat as no GPU."""
+
+    def side_effect(cmd):
+        if cmd[0] == "nvidia-smi":
+            return ""
+        if cmd[0] == "free":
+            return FREE_CPU_ONLY
+        if cmd[0] == "df":
+            return DF_OUTPUT
+        return None
+
+    mock_run_cmd.side_effect = side_effect
+
+    info = detect_hardware()
+
+    assert info.has_gpu is False
+    assert info.vram_gb == 0.0
+
+
+@patch("profiler.detect._run_cmd")
+def test_detect_hardware_malformed_nvidia_output(mock_run_cmd):
+    """nvidia-smi returns garbled text. Should handle gracefully."""
+
+    def side_effect(cmd):
+        if cmd[0] == "nvidia-smi":
+            return "Error: something went wrong"
+        if cmd[0] == "free":
+            return FREE_CPU_ONLY
+        if cmd[0] == "df":
+            return DF_OUTPUT
+        return None
+
+    mock_run_cmd.side_effect = side_effect
+
+    info = detect_hardware()
+
+    # Garbled output has no comma-separated VRAM value, so vram_gb stays 0
+    assert info.has_gpu is False
+    assert info.vram_gb == 0.0
+
+
+NVIDIA_SMI_MULTI_GPU = "NVIDIA A10, 24576\nNVIDIA A10, 24576"
+
+
+@patch("profiler.detect._run_cmd")
+def test_detect_hardware_multi_gpu(mock_run_cmd):
+    """nvidia-smi returns two GPU lines. Should take the first GPU only."""
+
+    def side_effect(cmd):
+        if cmd[0] == "nvidia-smi":
+            return NVIDIA_SMI_MULTI_GPU
+        if cmd[0] == "free":
+            return FREE_OUTPUT
+        if cmd[0] == "df":
+            return DF_OUTPUT
+        return None
+
+    mock_run_cmd.side_effect = side_effect
+
+    info = detect_hardware()
+
+    assert info.has_gpu is True
+    assert info.gpu_model == "NVIDIA A10"
+    assert 23.0 < info.vram_gb < 25.0

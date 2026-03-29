@@ -119,3 +119,24 @@ def test_tighter_matching_exact_preferred():
     assert isinstance(cfg, InferenceConfig)
     # Should match the exact Qwen/Qwen3.5-27B entry, not the longer distilled variant
     assert "bartowski/Qwen3.5-27B-GGUF" == cfg.model_url
+
+
+def test_partial_match_prefers_exact():
+    """'Qwen/Qwen3.5-27B' should match the 27B entry, not the Jackrong distilled variant."""
+    cfg = pick_strategy("Qwen/Qwen3.5-27B", _hw_a10())
+    assert isinstance(cfg, InferenceConfig)
+    # Must NOT pick the Jackrong distilled model URL
+    assert "Jackrong" not in cfg.model_url
+    assert "bartowski/Qwen3.5-27B-GGUF" == cfg.model_url
+
+
+def test_cpu_256_tier():
+    """Llama 70B on CPU-only 512GB RAM should get a CPU config with decent quant."""
+    hw = HardwareInfo(has_gpu=False, gpu_model=None, vram_gb=0.0, ram_gb=512.0, disk_gb=2000.0)
+    cfg = pick_strategy("meta-llama/Llama-3.1-70B", hw)
+    assert isinstance(cfg, InferenceConfig)
+    assert cfg.n_gpu_layers == 0  # no GPU
+    assert cfg.backend == "llamacpp"
+    # 70B fp16 = 140GB, 512GB RAM is plenty, so should get decent quant (not extreme)
+    assert cfg.quant_type in ("Q4_K_M", "Q6_K", "Q8_0", "Q2_K")
+    assert cfg.estimated_tps > 0
