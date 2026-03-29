@@ -1,0 +1,1516 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>oci-turboinference</title>
+<link href="https://api.fontshare.com/v2/css?f[]=clash-display@400,500,600,700&f[]=satoshi@400,500,700&display=swap" rel="stylesheet">
+<style>
+/* === RESET & BASE === */
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+/* === VIEWPORT BASE (FULL) === */
+html, body { height: 100%; overflow-x: hidden; }
+html { scroll-snap-type: y mandatory; scroll-behavior: smooth; }
+.slide { width: 100vw; height: 100vh; height: 100dvh; overflow: hidden; scroll-snap-align: start; display: flex; flex-direction: column; position: relative; }
+.slide-content { flex: 1; display: flex; flex-direction: column; justify-content: center; max-height: 100%; overflow: hidden; padding: var(--slide-padding); }
+:root {
+  --title-size: clamp(1.5rem, 5vw, 4rem);
+  --h2-size: clamp(1.25rem, 3.5vw, 2.5rem);
+  --h3-size: clamp(1rem, 2.5vw, 1.75rem);
+  --body-size: clamp(0.75rem, 1.5vw, 1.125rem);
+  --small-size: clamp(0.65rem, 1vw, 0.875rem);
+  --slide-padding: clamp(1rem, 4vw, 4rem);
+  --content-gap: clamp(0.5rem, 2vw, 2rem);
+  --element-gap: clamp(0.25rem, 1vw, 1rem);
+  --bg: #0a0f1c;
+  --card-bg: #111827;
+  --text: #ffffff;
+  --text-secondary: #9ca3af;
+  --cyan: #00ffcc;
+  --magenta: #ff00aa;
+  --warm: #ff6b35;
+}
+.card, .container, .content-box { max-width: min(90vw, 1000px); max-height: min(80vh, 700px); }
+.feature-list, .bullet-list { gap: clamp(0.4rem, 1vh, 1rem); }
+.feature-list li, .bullet-list li { font-size: var(--body-size); line-height: 1.4; }
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 250px), 1fr)); gap: clamp(0.5rem, 1.5vw, 1rem); }
+img, .image-container { max-width: 100%; max-height: min(50vh, 400px); object-fit: contain; }
+@media (max-height: 700px) { :root { --slide-padding: clamp(0.75rem, 3vw, 2rem); --content-gap: clamp(0.4rem, 1.5vw, 1rem); --title-size: clamp(1.25rem, 4.5vw, 2.5rem); --h2-size: clamp(1rem, 3vw, 1.75rem); } }
+@media (max-height: 600px) { :root { --slide-padding: clamp(0.5rem, 2.5vw, 1.5rem); --content-gap: clamp(0.3rem, 1vw, 0.75rem); --title-size: clamp(1.1rem, 4vw, 2rem); --body-size: clamp(0.7rem, 1.2vw, 0.95rem); } .nav-dots, .keyboard-hint, .decorative { display: none; } }
+@media (max-height: 500px) { :root { --slide-padding: clamp(0.4rem, 2vw, 1rem); --title-size: clamp(1rem, 3.5vw, 1.5rem); --h2-size: clamp(0.9rem, 2.5vw, 1.25rem); --body-size: clamp(0.65rem, 1vw, 0.85rem); } }
+@media (max-width: 600px) { :root { --title-size: clamp(1.25rem, 7vw, 2.5rem); } .grid { grid-template-columns: 1fr; } }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.2s !important; } html { scroll-behavior: auto; } }
+
+/* === GLOBAL STYLES === */
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Satoshi', sans-serif;
+  font-size: var(--body-size);
+  line-height: 1.6;
+}
+
+h1, h2, h3 {
+  font-family: 'Clash Display', sans-serif;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+h1 { font-size: var(--title-size); }
+h2 { font-size: var(--h2-size); }
+h3 { font-size: var(--h3-size); }
+
+/* === SLIDE BACKGROUNDS === */
+.slide {
+  background: var(--bg);
+}
+
+.slide::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(rgba(0,255,204,0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0,255,204,0.03) 1px, transparent 1px);
+  background-size: clamp(30px, 5vw, 60px) clamp(30px, 5vw, 60px);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.slide-content {
+  position: relative;
+  z-index: 1;
+  align-items: center;
+  text-align: center;
+}
+
+.slide-content.left-align {
+  align-items: flex-start;
+  text-align: left;
+}
+
+/* === NEON GLOW EFFECTS === */
+.glow-cyan {
+  text-shadow: 0 0 10px rgba(0,255,204,0.5), 0 0 40px rgba(0,255,204,0.2);
+  color: var(--cyan);
+}
+
+.glow-magenta {
+  text-shadow: 0 0 10px rgba(255,0,170,0.5), 0 0 40px rgba(255,0,170,0.2);
+  color: var(--magenta);
+}
+
+.glow-warm {
+  text-shadow: 0 0 10px rgba(255,107,53,0.5), 0 0 40px rgba(255,107,53,0.2);
+  color: var(--warm);
+}
+
+/* === CARDS === */
+.neon-card {
+  background: var(--card-bg);
+  border: 1px solid rgba(0,255,204,0.15);
+  border-radius: clamp(6px, 1vw, 12px);
+  padding: clamp(0.6rem, 2vw, 1.5rem);
+  position: relative;
+  overflow: hidden;
+  transition: border-color 0.3s, box-shadow 0.3s;
+}
+
+.neon-card:hover {
+  border-color: rgba(0,255,204,0.4);
+  box-shadow: 0 0 20px rgba(0,255,204,0.1);
+}
+
+.neon-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, var(--cyan), var(--magenta));
+}
+
+.neon-card h3 {
+  font-size: var(--h3-size);
+  margin-bottom: var(--element-gap);
+  color: var(--cyan);
+}
+
+.neon-card p, .neon-card li {
+  font-size: var(--body-size);
+  color: var(--text-secondary);
+}
+
+/* === GRADIENT BORDER CARDS === */
+.gradient-card {
+  background: var(--card-bg);
+  border-radius: clamp(6px, 1vw, 12px);
+  padding: clamp(0.6rem, 2vw, 1.5rem);
+  position: relative;
+  z-index: 0;
+}
+
+.gradient-card::before {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  background: linear-gradient(135deg, var(--cyan), var(--magenta), var(--warm));
+  z-index: -1;
+  opacity: 0.6;
+}
+
+.gradient-card::after {
+  content: '';
+  position: absolute;
+  inset: 1px;
+  border-radius: inherit;
+  background: var(--card-bg);
+  z-index: -1;
+}
+
+/* === BULLET LISTS === */
+.bullet-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: clamp(0.4rem, 1vh, 1rem);
+  text-align: left;
+  max-width: min(90vw, 800px);
+}
+
+.bullet-list li {
+  font-size: var(--body-size);
+  color: var(--text-secondary);
+  padding-left: clamp(1rem, 2vw, 1.5rem);
+  position: relative;
+}
+
+.bullet-list li::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0.6em;
+  width: clamp(4px, 0.5vw, 8px);
+  height: clamp(4px, 0.5vw, 8px);
+  background: var(--cyan);
+  border-radius: 50%;
+  box-shadow: 0 0 6px var(--cyan);
+}
+
+.bullet-list li strong {
+  color: var(--text);
+}
+
+/* === MONO ACCENTS === */
+.mono {
+  font-family: 'Courier New', monospace;
+  color: var(--cyan);
+  font-size: var(--small-size);
+}
+
+/* === CODE BLOCKS === */
+.code-block {
+  background: #0d1117;
+  border: 1px solid rgba(0,255,204,0.15);
+  border-radius: clamp(4px, 0.5vw, 8px);
+  padding: clamp(0.5rem, 1.5vw, 1.25rem);
+  font-family: 'Courier New', monospace;
+  font-size: var(--small-size);
+  text-align: left;
+  color: var(--text-secondary);
+  position: relative;
+  overflow: hidden;
+  max-width: min(90vw, 800px);
+  width: 100%;
+}
+
+.code-block::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0,255,204,0.015) 2px,
+    rgba(0,255,204,0.015) 4px
+  );
+  pointer-events: none;
+}
+
+/* === PIPELINE DIAGRAM === */
+.pipeline {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(0.25rem, 1vw, 0.75rem);
+  flex-wrap: wrap;
+  max-width: min(95vw, 1000px);
+}
+
+.pipeline-box {
+  background: var(--card-bg);
+  border: 1px solid rgba(0,255,204,0.3);
+  border-radius: clamp(4px, 0.5vw, 8px);
+  padding: clamp(0.3rem, 1vw, 0.75rem) clamp(0.5rem, 1.5vw, 1rem);
+  font-family: 'Clash Display', sans-serif;
+  font-size: var(--small-size);
+  color: var(--cyan);
+  white-space: nowrap;
+  box-shadow: 0 0 10px rgba(0,255,204,0.1);
+}
+
+.pipeline-arrow {
+  color: var(--magenta);
+  font-size: var(--body-size);
+  font-weight: 700;
+}
+
+/* === BENCHMARK BARS === */
+.bench-row {
+  display: flex;
+  align-items: center;
+  gap: clamp(0.5rem, 1.5vw, 1rem);
+  width: 100%;
+  max-width: min(90vw, 800px);
+}
+
+.bench-label {
+  font-family: 'Courier New', monospace;
+  font-size: var(--small-size);
+  color: var(--text-secondary);
+  min-width: clamp(60px, 10vw, 100px);
+  text-align: right;
+  flex-shrink: 0;
+}
+
+.bench-bar-wrap {
+  flex: 1;
+  height: clamp(24px, 4vh, 40px);
+  background: rgba(255,255,255,0.05);
+  border-radius: clamp(3px, 0.5vw, 6px);
+  position: relative;
+  overflow: hidden;
+}
+
+.bench-bar {
+  height: 100%;
+  border-radius: inherit;
+  position: relative;
+  width: 0;
+  transition: width 1.5s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.bench-bar.bar-cyan {
+  background: linear-gradient(90deg, var(--cyan), #00cc99);
+  box-shadow: 0 0 20px rgba(0,255,204,0.4), inset 0 1px 0 rgba(255,255,255,0.2);
+}
+
+.bench-bar.bar-magenta {
+  background: linear-gradient(90deg, var(--magenta), #cc0088);
+  box-shadow: 0 0 20px rgba(255,0,170,0.4), inset 0 1px 0 rgba(255,255,255,0.2);
+}
+
+.bench-bar.bar-warm {
+  background: linear-gradient(90deg, var(--warm), #cc5522);
+  box-shadow: 0 0 20px rgba(255,107,53,0.4), inset 0 1px 0 rgba(255,255,255,0.2);
+}
+
+.bench-bar::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.15) 50%, transparent 100%);
+  animation: bar-shimmer 2s infinite;
+}
+
+@keyframes bar-shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+.bench-value {
+  font-family: 'Clash Display', sans-serif;
+  font-size: var(--body-size);
+  font-weight: 600;
+  color: var(--text);
+  min-width: clamp(80px, 12vw, 140px);
+  text-align: left;
+  flex-shrink: 0;
+}
+
+/* === TABLE === */
+.neon-table {
+  width: 100%;
+  max-width: min(90vw, 900px);
+  border-collapse: collapse;
+  font-size: var(--small-size);
+}
+
+.neon-table th {
+  font-family: 'Clash Display', sans-serif;
+  font-weight: 600;
+  color: var(--cyan);
+  border-bottom: 2px solid rgba(0,255,204,0.3);
+  padding: clamp(0.3rem, 0.8vw, 0.6rem);
+  text-align: left;
+}
+
+.neon-table td {
+  padding: clamp(0.25rem, 0.6vw, 0.5rem);
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+  color: var(--text-secondary);
+}
+
+.neon-table tr:hover td {
+  background: rgba(0,255,204,0.03);
+}
+
+/* === QUANT VISUAL === */
+.quant-bar-row {
+  display: flex;
+  align-items: center;
+  gap: clamp(0.5rem, 1vw, 1rem);
+  max-width: min(90vw, 800px);
+  width: 100%;
+}
+
+.quant-label {
+  font-family: 'Courier New', monospace;
+  font-size: var(--small-size);
+  color: var(--text-secondary);
+  min-width: clamp(60px, 10vw, 90px);
+  text-align: right;
+  flex-shrink: 0;
+}
+
+.quant-bar-track {
+  flex: 1;
+  height: clamp(16px, 2.5vh, 28px);
+  background: rgba(255,255,255,0.03);
+  border-radius: 4px;
+  position: relative;
+}
+
+.quant-bar-fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 1.2s cubic-bezier(0.22, 1, 0.36, 1);
+  width: 0;
+}
+
+.quant-size {
+  font-size: var(--small-size);
+  color: var(--text);
+  min-width: clamp(40px, 6vw, 60px);
+  font-weight: 500;
+  flex-shrink: 0;
+}
+
+.quant-note {
+  font-size: var(--small-size);
+  color: var(--text-secondary);
+  min-width: clamp(60px, 10vw, 120px);
+  flex-shrink: 0;
+}
+
+.vram-line {
+  position: absolute;
+  top: -4px;
+  bottom: -4px;
+  width: 2px;
+  background: var(--warm);
+  box-shadow: 0 0 8px var(--warm);
+  z-index: 2;
+}
+
+.vram-label {
+  position: absolute;
+  top: -20px;
+  font-size: clamp(0.55rem, 0.8vw, 0.7rem);
+  color: var(--warm);
+  white-space: nowrap;
+  transform: translateX(-50%);
+}
+
+/* === STEP VISUAL === */
+.steps {
+  display: flex;
+  gap: clamp(0.5rem, 2vw, 2rem);
+  justify-content: center;
+  flex-wrap: wrap;
+  max-width: min(95vw, 900px);
+}
+
+.step {
+  flex: 1;
+  min-width: clamp(120px, 20vw, 200px);
+  max-width: 280px;
+  text-align: center;
+}
+
+.step-num {
+  font-family: 'Clash Display', sans-serif;
+  font-size: var(--h2-size);
+  font-weight: 700;
+  color: var(--cyan);
+  text-shadow: 0 0 20px rgba(0,255,204,0.4);
+}
+
+.step-title {
+  font-family: 'Clash Display', sans-serif;
+  font-size: var(--body-size);
+  font-weight: 600;
+  color: var(--text);
+  margin: var(--element-gap) 0;
+}
+
+.step-desc {
+  font-size: var(--small-size);
+  color: var(--text-secondary);
+}
+
+/* === BIG STATS === */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr));
+  gap: clamp(0.5rem, 1.5vw, 1.5rem);
+  max-width: min(95vw, 900px);
+  width: 100%;
+}
+
+.stat-item {
+  text-align: center;
+  padding: clamp(0.5rem, 1.5vw, 1.25rem);
+}
+
+.stat-number {
+  font-family: 'Clash Display', sans-serif;
+  font-size: clamp(1.5rem, 4vw, 3.5rem);
+  font-weight: 700;
+  background: linear-gradient(135deg, var(--cyan), var(--magenta));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.stat-label {
+  font-size: var(--small-size);
+  color: var(--text-secondary);
+  margin-top: var(--element-gap);
+}
+
+/* === PROGRESS BAR === */
+.progress-bar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--cyan), var(--magenta));
+  z-index: 1000;
+  transition: width 0.3s;
+  box-shadow: 0 0 10px var(--cyan);
+}
+
+/* === NAV DOTS === */
+.nav-dots {
+  position: fixed;
+  right: clamp(8px, 1.5vw, 20px);
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: clamp(4px, 0.6vh, 8px);
+  z-index: 1000;
+}
+
+.nav-dot {
+  width: clamp(6px, 0.8vw, 10px);
+  height: clamp(6px, 0.8vw, 10px);
+  border-radius: 50%;
+  background: rgba(255,255,255,0.2);
+  cursor: pointer;
+  transition: background 0.3s, box-shadow 0.3s, transform 0.3s;
+  border: none;
+  padding: 0;
+}
+
+.nav-dot.active {
+  background: var(--cyan);
+  box-shadow: 0 0 8px var(--cyan);
+  transform: scale(1.3);
+}
+
+/* === KEYBOARD HINT === */
+.keyboard-hint {
+  position: fixed;
+  bottom: clamp(8px, 1.5vw, 20px);
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: var(--small-size);
+  color: rgba(255,255,255,0.25);
+  z-index: 1000;
+  font-family: 'Courier New', monospace;
+}
+
+/* === ANIMATIONS === */
+.anim-item {
+  opacity: 0;
+  transform: translateY(30px);
+  transition: opacity 0.6s cubic-bezier(0.16, 1, 0.3, 1), transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.slide.visible .anim-item {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.slide.visible .anim-item:nth-child(1) { transition-delay: 0s; }
+.slide.visible .anim-item:nth-child(2) { transition-delay: 0.1s; }
+.slide.visible .anim-item:nth-child(3) { transition-delay: 0.2s; }
+.slide.visible .anim-item:nth-child(4) { transition-delay: 0.3s; }
+.slide.visible .anim-item:nth-child(5) { transition-delay: 0.4s; }
+.slide.visible .anim-item:nth-child(6) { transition-delay: 0.5s; }
+.slide.visible .anim-item:nth-child(7) { transition-delay: 0.6s; }
+.slide.visible .anim-item:nth-child(8) { transition-delay: 0.7s; }
+.slide.visible .anim-item:nth-child(9) { transition-delay: 0.8s; }
+.slide.visible .anim-item:nth-child(10) { transition-delay: 0.9s; }
+
+/* === TITLE SLIDE SPECIAL === */
+#slide-title {
+  overflow: hidden;
+}
+
+#slide-title::before {
+  display: none;
+}
+
+#particle-canvas {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+}
+
+#slide-title .slide-content {
+  z-index: 1;
+}
+
+.title-main {
+  font-family: 'Clash Display', sans-serif;
+  font-size: clamp(2rem, 7vw, 5.5rem);
+  font-weight: 700;
+  background: linear-gradient(135deg, var(--cyan) 0%, var(--magenta) 50%, var(--warm) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  filter: drop-shadow(0 0 30px rgba(0,255,204,0.3));
+}
+
+.title-tagline {
+  font-size: clamp(0.9rem, 2.5vw, 1.75rem);
+  color: var(--text-secondary);
+  margin-top: var(--content-gap);
+  font-weight: 400;
+}
+
+.title-tagline strong {
+  color: var(--cyan);
+  font-weight: 600;
+}
+
+/* === SUBTITLE === */
+.slide-subtitle {
+  font-size: var(--body-size);
+  color: var(--text-secondary);
+  margin-top: var(--element-gap);
+  max-width: min(80vw, 700px);
+}
+
+/* === FEATURE GRID === */
+.feature-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
+  gap: clamp(0.5rem, 1.5vw, 1rem);
+  max-width: min(95vw, 900px);
+  width: 100%;
+}
+
+.feature-grid .neon-card {
+  text-align: left;
+}
+
+.feature-icon {
+  font-size: clamp(1.2rem, 2.5vw, 2rem);
+  margin-bottom: var(--element-gap);
+}
+
+/* === CTA === */
+.cta-link {
+  display: inline-block;
+  font-family: 'Courier New', monospace;
+  font-size: var(--body-size);
+  color: var(--cyan);
+  text-decoration: none;
+  padding: clamp(0.5rem, 1.5vw, 1rem) clamp(1rem, 3vw, 2rem);
+  border: 1px solid var(--cyan);
+  border-radius: clamp(4px, 0.5vw, 8px);
+  transition: background 0.3s, box-shadow 0.3s;
+  margin-top: var(--content-gap);
+}
+
+.cta-link:hover {
+  background: rgba(0,255,204,0.1);
+  box-shadow: 0 0 20px rgba(0,255,204,0.3);
+}
+
+/* === TIER CARDS === */
+.tier-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 230px), 1fr));
+  gap: clamp(0.5rem, 1.5vw, 1rem);
+  max-width: min(95vw, 900px);
+  width: 100%;
+}
+
+.tier-card {
+  background: var(--card-bg);
+  border: 1px solid rgba(0,255,204,0.15);
+  border-radius: clamp(6px, 1vw, 12px);
+  padding: clamp(0.6rem, 2vw, 1.25rem);
+  text-align: left;
+  position: relative;
+  overflow: hidden;
+}
+
+.tier-card.highlight {
+  border-color: rgba(0,255,204,0.5);
+  box-shadow: 0 0 25px rgba(0,255,204,0.15);
+}
+
+.tier-card.highlight::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, var(--cyan), var(--magenta));
+}
+
+.tier-tag {
+  font-family: 'Courier New', monospace;
+  font-size: var(--small-size);
+  color: var(--cyan);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.tier-title {
+  font-family: 'Clash Display', sans-serif;
+  font-size: var(--h3-size);
+  font-weight: 600;
+  margin: var(--element-gap) 0;
+}
+
+.tier-price {
+  font-size: var(--body-size);
+  color: var(--warm);
+  font-weight: 600;
+}
+
+.tier-desc {
+  font-size: var(--small-size);
+  color: var(--text-secondary);
+  margin-top: var(--element-gap);
+}
+
+/* === MISC === */
+.spacer { height: var(--content-gap); }
+.max-w { max-width: min(90vw, 800px); width: 100%; }
+.text-left { text-align: left; }
+</style>
+</head>
+<body>
+
+<!-- === PROGRESS BAR === -->
+<div class="progress-bar" id="progress-bar"></div>
+
+<!-- === NAV DOTS === -->
+<nav class="nav-dots" id="nav-dots"></nav>
+
+<!-- === KEYBOARD HINT === -->
+<div class="keyboard-hint decorative">[arrows / space / swipe]</div>
+
+<!-- =============================== -->
+<!-- === SLIDE 1: TITLE === -->
+<!-- =============================== -->
+<section class="slide" id="slide-title">
+  <canvas id="particle-canvas"></canvas>
+  <div class="slide-content">
+    <div class="anim-item mono" style="margin-bottom: var(--element-gap);">// open source</div>
+    <h1 class="anim-item title-main">oci-turboinference</h1>
+    <p class="anim-item title-tagline">Run <strong>400B+ parameter models</strong> on a <strong>$1/hr GPU</strong></p>
+  </div>
+</section>
+
+<!-- =============================== -->
+<!-- === SLIDE 2: THE PROBLEM === -->
+<!-- =============================== -->
+<section class="slide" id="slide-problem">
+  <div class="slide-content">
+    <h2 class="anim-item">Models keep getting bigger. <span class="glow-warm">GPUs don't.</span></h2>
+    <div class="spacer"></div>
+    <ul class="bullet-list anim-item">
+      <li><strong>GPT-4:</strong> ~1.8T params &nbsp;|&nbsp; <strong>DeepSeek-V3:</strong> 671B &nbsp;|&nbsp; <strong>Llama 70B:</strong> needs 140GB at fp16</li>
+      <li><strong>A10 GPU: 24GB VRAM.</strong> That's it.</li>
+      <li>Most people can't afford A100s or H100s</li>
+    </ul>
+  </div>
+</section>
+
+<!-- =============================== -->
+<!-- === SLIDE 3: THE INSIGHT === -->
+<!-- =============================== -->
+<section class="slide" id="slide-insight">
+  <div class="slide-content">
+    <h2 class="anim-item">What if the model <span class="glow-cyan">doesn't need to fit?</span></h2>
+    <div class="spacer"></div>
+    <ul class="bullet-list anim-item">
+      <li><strong>Extreme quantization:</strong> compress 27B params into 8.6GB (2-bit)</li>
+      <li><strong>CPU offloading:</strong> spill layers to 240GB system RAM</li>
+      <li><strong>Smart layer splitting:</strong> GPU handles hot layers, CPU handles the rest</li>
+    </ul>
+  </div>
+</section>
+
+<!-- =============================== -->
+<!-- === SLIDE 4: ARCHITECTURE === -->
+<!-- =============================== -->
+<section class="slide" id="slide-arch">
+  <div class="slide-content">
+    <h2 class="anim-item">How It Works</h2>
+    <div class="spacer"></div>
+    <div class="pipeline anim-item">
+      <div class="pipeline-box">OCI Console</div>
+      <span class="pipeline-arrow">&rarr;</span>
+      <div class="pipeline-box">Resource Manager</div>
+      <span class="pipeline-arrow">&rarr;</span>
+      <div class="pipeline-box">Cloud-init</div>
+      <span class="pipeline-arrow">&rarr;</span>
+      <div class="pipeline-box" style="border-color: rgba(255,0,170,0.4); color: var(--magenta);">Profiler</div>
+      <span class="pipeline-arrow">&rarr;</span>
+      <div class="pipeline-box">Inference Server</div>
+      <span class="pipeline-arrow">&rarr;</span>
+      <div class="pipeline-box" style="border-color: rgba(255,107,53,0.4); color: var(--warm);">OpenAI API</div>
+    </div>
+    <div class="spacer"></div>
+    <p class="anim-item slide-subtitle">One Terraform stack. Cloud-init handles everything: drivers, profiling, model download, server startup.</p>
+  </div>
+</section>
+
+<!-- =============================== -->
+<!-- === SLIDE 5: THREE TIERS === -->
+<!-- =============================== -->
+<section class="slide" id="slide-tiers">
+  <div class="slide-content">
+    <h2 class="anim-item">Three Deployment Tiers</h2>
+    <div class="spacer"></div>
+    <div class="tier-cards">
+      <div class="tier-card highlight anim-item">
+        <span class="tier-tag">GPU</span>
+        <h3 class="tier-title">A10 24GB</h3>
+        <p class="tier-price">~$1/hr</p>
+        <p class="tier-desc">vLLM or llama.cpp. Full GPU inference. Best performance per dollar.</p>
+      </div>
+      <div class="tier-card anim-item">
+        <span class="tier-tag">GPU + Offload</span>
+        <h3 class="tier-title">A10 + RAM</h3>
+        <p class="tier-price">~$1/hr</p>
+        <p class="tier-desc">llama.cpp extreme quants. Run 70B+ models by spilling layers to system RAM.</p>
+      </div>
+      <div class="tier-card anim-item">
+        <span class="tier-tag">CPU Only</span>
+        <h3 class="tier-title">Flex Shape</h3>
+        <p class="tier-price">~$0.03/hr per OCPU</p>
+        <p class="tier-desc">Up to 1TB RAM. Slow but functional. Great for batch workloads.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- =============================== -->
+<!-- === SLIDE 6: PROFILER === -->
+<!-- =============================== -->
+<section class="slide" id="slide-profiler">
+  <div class="slide-content">
+    <h2 class="anim-item">The Profiler</h2>
+    <p class="anim-item slide-subtitle">Auto-detects your hardware. Picks the optimal strategy.</p>
+    <div class="spacer"></div>
+    <ul class="bullet-list anim-item">
+      <li><strong>Detects:</strong> GPU model, VRAM, RAM, disk space</li>
+      <li><strong>Checks curated table</strong> of 10 tested model configurations</li>
+      <li><strong>Falls back to llmfit</strong> for unknown models</li>
+      <li><strong>Outputs:</strong> backend, quant type, layer split, context size</li>
+    </ul>
+  </div>
+</section>
+
+<!-- =============================== -->
+<!-- === SLIDE 7: CURATED MODELS === -->
+<!-- =============================== -->
+<section class="slide" id="slide-models">
+  <div class="slide-content">
+    <h2 class="anim-item">Curated Models</h2>
+    <div class="spacer"></div>
+    <table class="neon-table anim-item">
+      <thead>
+        <tr><th>Model</th><th>Params</th><th>A10 Strategy</th><th>Est. tok/s</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Qwen3.5-35B-A3B</td><td>35B (3B active)</td><td>IQ4_XS, full GPU</td><td>~30</td></tr>
+        <tr><td>Qwen3.5-27B</td><td>27B</td><td>IQ2_XXS, full GPU</td><td>~27</td></tr>
+        <tr><td>Llama 3.1 70B</td><td>70B</td><td>IQ2_XXS + offload</td><td>~5</td></tr>
+        <tr><td>DeepSeek-V3</td><td>671B</td><td>IQ2_XXS, CPU offload</td><td>~1-2</td></tr>
+        <tr><td>Phi-4</td><td>14B</td><td>Q4_K_M, full GPU</td><td>~40</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- =============================== -->
+<!-- === SLIDE 8: QUANTIZATION === -->
+<!-- =============================== -->
+<section class="slide" id="slide-quant">
+  <div class="slide-content">
+    <h2 class="anim-item">Same model, <span class="glow-magenta">different sizes</span></h2>
+    <p class="anim-item slide-subtitle mono">Qwen3.5-27B at different quant levels</p>
+    <div class="spacer"></div>
+    <div class="max-w anim-item" style="display:flex; flex-direction:column; gap:clamp(0.3rem,0.8vh,0.6rem);">
+      <!-- BF16 -->
+      <div class="quant-bar-row">
+        <span class="quant-label">BF16</span>
+        <div class="quant-bar-track" style="position:relative;">
+          <div class="quant-bar-fill" data-width="100" style="background:linear-gradient(90deg,#ff4444,#ff6666); opacity:0.7;"></div>
+          <div class="vram-line" style="left:44.4%;"><span class="vram-label">24GB VRAM</span></div>
+        </div>
+        <span class="quant-size" style="color:var(--warm);">54GB</span>
+        <span class="quant-note" style="color:#ff4444;">doesn't fit</span>
+      </div>
+      <!-- Q8_0 -->
+      <div class="quant-bar-row">
+        <span class="quant-label">Q8_0</span>
+        <div class="quant-bar-track">
+          <div class="quant-bar-fill" data-width="53.7" style="background:linear-gradient(90deg,var(--warm),#ff8855);"></div>
+        </div>
+        <span class="quant-size" style="color:var(--warm);">29GB</span>
+        <span class="quant-note">barely fits</span>
+      </div>
+      <!-- Q4_K_M -->
+      <div class="quant-bar-row">
+        <span class="quant-label">Q4_K_M</span>
+        <div class="quant-bar-track">
+          <div class="quant-bar-fill" data-width="31.5" style="background:linear-gradient(90deg,var(--magenta),#ff44cc);"></div>
+        </div>
+        <span class="quant-size">17GB</span>
+        <span class="quant-note">tight</span>
+      </div>
+      <!-- IQ4_XS -->
+      <div class="quant-bar-row">
+        <span class="quant-label">IQ4_XS</span>
+        <div class="quant-bar-track">
+          <div class="quant-bar-fill" data-width="27.8" style="background:linear-gradient(90deg,#8844ff,#aa66ff);"></div>
+        </div>
+        <span class="quant-size">15GB</span>
+        <span class="quant-note">comfortable</span>
+      </div>
+      <!-- IQ2_XXS -->
+      <div class="quant-bar-row">
+        <span class="quant-label">IQ2_XXS</span>
+        <div class="quant-bar-track">
+          <div class="quant-bar-fill" data-width="15.9" style="background:linear-gradient(90deg,var(--cyan),#44ffcc);"></div>
+        </div>
+        <span class="quant-size" style="color:var(--cyan);">8.6GB</span>
+        <span class="quant-note" style="color:var(--cyan);">plenty of room</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- =============================== -->
+<!-- === SLIDE 9: BENCHMARK MONEY SLIDE === -->
+<!-- =============================== -->
+<section class="slide" id="slide-bench">
+  <div class="slide-content">
+    <h2 class="anim-item">Smaller quants are <span class="glow-cyan">FASTER</span></h2>
+    <p class="anim-item slide-subtitle mono">Qwen3.5-27B generation speed on A10 (24GB)</p>
+    <div class="spacer"></div>
+    <div class="max-w" style="display:flex; flex-direction:column; gap:clamp(0.6rem,1.5vh,1.2rem);">
+      <div class="bench-row anim-item">
+        <span class="bench-label">IQ2_XXS</span>
+        <div class="bench-bar-wrap">
+          <div class="bench-bar bar-cyan" data-width="100"></div>
+        </div>
+        <span class="bench-value"><span class="glow-cyan">27.1</span> tok/s &nbsp; 13.4GB</span>
+      </div>
+      <div class="bench-row anim-item">
+        <span class="bench-label">IQ4_XS</span>
+        <div class="bench-bar-wrap">
+          <div class="bench-bar bar-magenta" data-width="88.2"></div>
+        </div>
+        <span class="bench-value">23.9 tok/s &nbsp; 19.3GB</span>
+      </div>
+      <div class="bench-row anim-item">
+        <span class="bench-label">Q4_K_M</span>
+        <div class="bench-bar-wrap">
+          <div class="bench-bar bar-warm" data-width="80.8"></div>
+        </div>
+        <span class="bench-value">21.9 tok/s &nbsp; 22.5GB</span>
+      </div>
+    </div>
+    <p class="anim-item" style="font-size:var(--small-size); color:var(--text-secondary); margin-top:var(--content-gap);">24% faster generation with extreme quantization. Real A10 benchmarks.</p>
+  </div>
+</section>
+
+<!-- =============================== -->
+<!-- === SLIDE 10: WHY SMALLER = FASTER === -->
+<!-- =============================== -->
+<section class="slide" id="slide-why-faster">
+  <div class="slide-content">
+    <h2 class="anim-item">Why smaller = <span class="glow-cyan">faster</span></h2>
+    <p class="anim-item slide-subtitle">Less VRAM pressure = more bandwidth for compute</p>
+    <div class="spacer"></div>
+    <ul class="bullet-list anim-item">
+      <li><strong>Q4_K_M uses 22.5GB</strong> of 23GB total. The GPU is memory-starved.</li>
+      <li><strong>IQ2_XXS uses 13.4GB</strong> leaving 10GB free for KV cache + compute.</li>
+      <li><strong>Memory bandwidth is the bottleneck,</strong> not raw compute.</li>
+      <li><strong>Result: 24% faster generation</strong> despite lower precision.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- =============================== -->
+<!-- === SLIDE 11: PROMPT EVAL === -->
+<!-- =============================== -->
+<section class="slide" id="slide-prompt-eval">
+  <div class="slide-content">
+    <h2 class="anim-item">Prompt eval speed: <span class="glow-warm">the trade-off</span></h2>
+    <div class="spacer"></div>
+    <div class="max-w" style="display:flex; flex-direction:column; gap:clamp(0.5rem,1.2vh,1rem);">
+      <div class="bench-row anim-item">
+        <span class="bench-label">Q4_K_M</span>
+        <div class="bench-bar-wrap">
+          <div class="bench-bar bar-warm" data-width="100"></div>
+        </div>
+        <span class="bench-value"><strong>245</strong> tok/s</span>
+      </div>
+      <div class="bench-row anim-item">
+        <span class="bench-label">IQ4_XS</span>
+        <div class="bench-bar-wrap">
+          <div class="bench-bar bar-magenta" data-width="61.6"></div>
+        </div>
+        <span class="bench-value">151 tok/s</span>
+      </div>
+      <div class="bench-row anim-item">
+        <span class="bench-label">IQ2_XXS</span>
+        <div class="bench-bar-wrap">
+          <div class="bench-bar bar-cyan" data-width="62.4"></div>
+        </div>
+        <span class="bench-value">153 tok/s</span>
+      </div>
+    </div>
+    <div class="spacer"></div>
+    <ul class="bullet-list anim-item">
+      <li>For interactive use, <strong>generation speed matters more</strong></li>
+      <li>Prompt eval is a one-time cost per conversation</li>
+    </ul>
+  </div>
+</section>
+
+<!-- =============================== -->
+<!-- === SLIDE 12: QUALITY vs SPEED === -->
+<!-- =============================== -->
+<section class="slide" id="slide-quality">
+  <div class="slide-content">
+    <h2 class="anim-item">Quality vs Speed</h2>
+    <p class="anim-item slide-subtitle">When to use what</p>
+    <div class="spacer"></div>
+    <div class="tier-cards">
+      <div class="tier-card anim-item">
+        <span class="tier-tag" style="color:var(--cyan);">IQ2_XXS</span>
+        <h3 class="tier-title">Fast &amp; Light</h3>
+        <p class="tier-desc">Chat, code completion, simple Q&amp;A. Quality: acceptable. Speed: best.</p>
+      </div>
+      <div class="tier-card highlight anim-item">
+        <span class="tier-tag" style="color:var(--magenta);">IQ4_XS</span>
+        <h3 class="tier-title">Sweet Spot</h3>
+        <p class="tier-desc">Good quality for most tasks. Balanced speed and accuracy.</p>
+      </div>
+      <div class="tier-card anim-item">
+        <span class="tier-tag" style="color:var(--warm);">Q4_K_M</span>
+        <h3 class="tier-title">Best Quality</h3>
+        <p class="tier-desc">Complex reasoning, long-form writing. Best precision at this size class.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- =============================== -->
+<!-- === SLIDE 13: ONE-CLICK DEPLOY === -->
+<!-- =============================== -->
+<section class="slide" id="slide-deploy">
+  <div class="slide-content">
+    <h2 class="anim-item">One-Click OCI Deploy</h2>
+    <p class="anim-item slide-subtitle mono">Upload &rarr; Click &rarr; Done</p>
+    <div class="spacer"></div>
+    <div class="steps">
+      <div class="step anim-item">
+        <div class="step-num">1</div>
+        <div class="step-title">Download</div>
+        <div class="step-desc">Get the Terraform stack (.zip) from the repo</div>
+      </div>
+      <div class="step anim-item">
+        <div class="step-num">2</div>
+        <div class="step-title">Upload</div>
+        <div class="step-desc">Upload to OCI Resource Manager</div>
+      </div>
+      <div class="step anim-item">
+        <div class="step-num">3</div>
+        <div class="step-title">Configure</div>
+        <div class="step-desc">Pick model, pick shape, click "Create Stack"</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- =============================== -->
+<!-- === SLIDE 14: WHAT GETS DEPLOYED === -->
+<!-- =============================== -->
+<section class="slide" id="slide-stack">
+  <div class="slide-content">
+    <h2 class="anim-item">What Gets Deployed</h2>
+    <div class="spacer"></div>
+    <div class="feature-grid">
+      <div class="neon-card anim-item">
+        <div class="feature-icon">&#x1F4A5;</div>
+        <h3>NVIDIA + CUDA</h3>
+        <p>Drivers auto-installed and configured</p>
+      </div>
+      <div class="neon-card anim-item">
+        <div class="feature-icon">&#x1F999;</div>
+        <h3>llama.cpp</h3>
+        <p>GPU + CPU inference, extreme quants</p>
+      </div>
+      <div class="neon-card anim-item">
+        <div class="feature-icon">&#x26A1;</div>
+        <h3>vLLM</h3>
+        <p>GPU inference, AWQ/GPTQ quantization</p>
+      </div>
+      <div class="neon-card anim-item">
+        <div class="feature-icon">&#x1F9E0;</div>
+        <h3>llmfit</h3>
+        <p>Hardware profiler, auto-configuration</p>
+      </div>
+      <div class="neon-card anim-item">
+        <div class="feature-icon">&#x1F916;</div>
+        <h3>Pi Agent</h3>
+        <p>AI pair programmer, pre-configured</p>
+      </div>
+      <div class="neon-card anim-item">
+        <div class="feature-icon">&#x1F310;</div>
+        <h3>OpenAI API</h3>
+        <p>Compatible endpoint on port 8080</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- =============================== -->
+<!-- === SLIDE 15: PI AGENT === -->
+<!-- =============================== -->
+<section class="slide" id="slide-pi">
+  <div class="slide-content">
+    <h2 class="anim-item">Pi Coding Agent</h2>
+    <p class="anim-item slide-subtitle">Your AI pair programmer, powered by your model</p>
+    <div class="spacer"></div>
+    <ul class="bullet-list anim-item">
+      <li>Auto-installed and configured during deployment</li>
+      <li>Points to <span class="mono">localhost:8080</span></li>
+      <li>SSH in and run <span class="mono">pi</span></li>
+      <li>Works with any model the profiler picks</li>
+    </ul>
+    <div class="spacer"></div>
+    <div class="code-block anim-item">
+      <span style="color:var(--text-secondary);">$</span> <span style="color:var(--cyan);">ssh</span> opc@your-instance<br>
+      <span style="color:var(--text-secondary);">$</span> <span style="color:var(--cyan);">pi</span><br>
+      <span style="color:var(--text-secondary);"># coding agent ready, backed by Qwen3.5-27B</span>
+    </div>
+  </div>
+</section>
+
+<!-- =============================== -->
+<!-- === SLIDE 16: SECURITY === -->
+<!-- =============================== -->
+<section class="slide" id="slide-security">
+  <div class="slide-content">
+    <h2 class="anim-item">Security</h2>
+    <div class="spacer"></div>
+    <div class="feature-grid" style="max-width:min(95vw,750px);">
+      <div class="neon-card anim-item">
+        <h3>SSH Key Auth</h3>
+        <p>No passwords. Key-based authentication only.</p>
+      </div>
+      <div class="neon-card anim-item">
+        <h3>Network Security Group</h3>
+        <p>Restrict access by CIDR block.</p>
+      </div>
+      <div class="neon-card anim-item">
+        <h3>API Key Auth</h3>
+        <p>Optional nginx reverse proxy with key validation.</p>
+      </div>
+      <div class="neon-card anim-item">
+        <h3>Clean State</h3>
+        <p>No secrets stored in Terraform state.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- =============================== -->
+<!-- === SLIDE 17: CPU-ONLY === -->
+<!-- =============================== -->
+<section class="slide" id="slide-cpu">
+  <div class="slide-content">
+    <h2 class="anim-item">No GPU? <span class="glow-cyan">No problem.</span></h2>
+    <div class="spacer"></div>
+    <ul class="bullet-list anim-item">
+      <li><strong>OCI VM.Standard.E5.Flex:</strong> up to 64 OCPUs, 1TB RAM</li>
+      <li><strong>Cost:</strong> ~$0.03/hr per OCPU</li>
+      <li>A 70B model at Q4_K_M (~40GB) fits in 64GB RAM</li>
+      <li><strong>Speed:</strong> 1-2 tok/s (slow but functional)</li>
+      <li><span class="mono">llama.cpp -ngl 0</span> (all layers in RAM)</li>
+    </ul>
+  </div>
+</section>
+
+<!-- =============================== -->
+<!-- === SLIDE 18: SYSTEMD === -->
+<!-- =============================== -->
+<section class="slide" id="slide-systemd">
+  <div class="slide-content">
+    <h2 class="anim-item">Production-ready <span class="glow-magenta">from boot</span></h2>
+    <div class="spacer"></div>
+    <ul class="bullet-list anim-item">
+      <li><strong>systemd service</strong> with auto-restart on failure</li>
+      <li><strong>Health check</strong> polls <span class="mono">/v1/models</span></li>
+      <li><strong>Logs</strong> to journald</li>
+      <li><strong>Survives reboots</strong></li>
+    </ul>
+    <div class="spacer"></div>
+    <div class="code-block anim-item">
+      <span style="color:var(--text-secondary);">$</span> <span style="color:var(--cyan);">systemctl status</span> turboinference<br>
+      <span style="color:#4ade80;">&#x25CF;</span> turboinference.service - TurboInference Server<br>
+      &nbsp;&nbsp;Active: <span style="color:#4ade80;">active (running)</span><br>
+      &nbsp;&nbsp;Memory: 18.2G
+    </div>
+  </div>
+</section>
+
+<!-- =============================== -->
+<!-- === SLIDE 19: BENCHMARKING === -->
+<!-- =============================== -->
+<section class="slide" id="slide-benchsys">
+  <div class="slide-content">
+    <h2 class="anim-item">Measure Everything</h2>
+    <p class="anim-item slide-subtitle">Built-in benchmarking system</p>
+    <div class="spacer"></div>
+    <ul class="bullet-list anim-item">
+      <li><strong>JSON + text logging</strong> per benchmark run</li>
+      <li><strong>Metrics:</strong> TTFT, tok/s, VRAM, RAM, prompt eval</li>
+      <li><strong>Standard prompt suite:</strong> short / medium / long / code</li>
+      <li><strong>Compare quant levels</strong> systematically</li>
+    </ul>
+  </div>
+</section>
+
+<!-- =============================== -->
+<!-- === SLIDE 20: ROADMAP === -->
+<!-- =============================== -->
+<section class="slide" id="slide-roadmap">
+  <div class="slide-content">
+    <h2 class="anim-item">What's Next</h2>
+    <div class="spacer"></div>
+    <ul class="bullet-list anim-item">
+      <li><strong>TurboQuant:</strong> KV cache compression via vLLM + Triton</li>
+      <li><strong>Multi-GPU:</strong> tensor parallelism across 2x A10</li>
+      <li><strong>Web dashboard:</strong> model switching and monitoring</li>
+      <li><strong>Auto-scaling:</strong> CPU idle, GPU on demand</li>
+    </ul>
+  </div>
+</section>
+
+<!-- =============================== -->
+<!-- === SLIDE 21: THE NUMBERS === -->
+<!-- =============================== -->
+<section class="slide" id="slide-numbers">
+  <div class="slide-content">
+    <h2 class="anim-item">The Numbers</h2>
+    <div class="spacer"></div>
+    <div class="stats-grid anim-item">
+      <div class="stat-item">
+        <div class="stat-number" data-target="10">0</div>
+        <div class="stat-label">curated models</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-number" data-target="3">0</div>
+        <div class="stat-label">deployment tiers</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-number" data-target="48">0</div>
+        <div class="stat-label">tests passing</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-number" data-target="27">0</div>
+        <div class="stat-label">tok/s on $1/hr GPU</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-number" data-target="24">0</div>
+        <div class="stat-label">% faster with extreme quant</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- =============================== -->
+<!-- === SLIDE 22: CLOSING === -->
+<!-- =============================== -->
+<section class="slide" id="slide-cta">
+  <div class="slide-content">
+    <h2 class="anim-item" style="font-size:var(--title-size);">Run huge models.<br><span class="glow-cyan">Small hardware.</span><br>One click.</h2>
+    <div class="spacer"></div>
+    <p class="anim-item mono">github.com/jasperan/oci-turboinference</p>
+    <a href="https://github.com/jasperan/oci-turboinference" class="cta-link anim-item" target="_blank">View on GitHub</a>
+    <p class="anim-item" style="font-size:var(--small-size); color:var(--text-secondary); margin-top:var(--content-gap);">MIT License</p>
+  </div>
+</section>
+
+<!-- === JAVASCRIPT === -->
+<script>
+/* === PARTICLE SYSTEM === */
+(function() {
+  const canvas = document.getElementById('particle-canvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  let particles = [];
+  const PARTICLE_COUNT = 40;
+
+  function resize() {
+    canvas.width = canvas.offsetWidth;
+    canvas.height = canvas.offsetHeight;
+  }
+
+  function createParticle() {
+    return {
+      x: Math.random() * canvas.width,
+      y: Math.random() * canvas.height,
+      vx: (Math.random() - 0.5) * 0.3,
+      vy: (Math.random() - 0.5) * 0.3,
+      size: Math.random() * 2 + 0.5,
+      opacity: Math.random() * 0.4 + 0.1,
+      color: Math.random() > 0.5 ? '0,255,204' : '255,0,170'
+    };
+  }
+
+  function init() {
+    resize();
+    particles = [];
+    for (let i = 0; i < PARTICLE_COUNT; i++) {
+      particles.push(createParticle());
+    }
+  }
+
+  function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    particles.forEach(p => {
+      p.x += p.vx;
+      p.y += p.vy;
+      if (p.x < 0 || p.x > canvas.width) p.vx *= -1;
+      if (p.y < 0 || p.y > canvas.height) p.vy *= -1;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(${p.color},${p.opacity})`;
+      ctx.fill();
+    });
+
+    // Draw connections
+    for (let i = 0; i < particles.length; i++) {
+      for (let j = i + 1; j < particles.length; j++) {
+        const dx = particles[i].x - particles[j].x;
+        const dy = particles[i].y - particles[j].y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist < 150) {
+          ctx.beginPath();
+          ctx.moveTo(particles[i].x, particles[i].y);
+          ctx.lineTo(particles[j].x, particles[j].y);
+          ctx.strokeStyle = `rgba(0,255,204,${0.06 * (1 - dist / 150)})`;
+          ctx.lineWidth = 0.5;
+          ctx.stroke();
+        }
+      }
+    }
+    requestAnimationFrame(draw);
+  }
+
+  window.addEventListener('resize', resize);
+  init();
+  draw();
+})();
+
+/* === SLIDE PRESENTATION CLASS === */
+class SlidePresentation {
+  constructor() {
+    this.slides = document.querySelectorAll('.slide');
+    this.dots = document.getElementById('nav-dots');
+    this.progressBar = document.getElementById('progress-bar');
+    this.currentSlide = 0;
+    this.touchStartY = 0;
+    this.touchEndY = 0;
+    this.countersAnimated = false;
+
+    this.createDots();
+    this.setupObserver();
+    this.setupKeyboard();
+    this.setupTouch();
+    this.updateProgress();
+  }
+
+  createDots() {
+    this.slides.forEach((_, i) => {
+      const dot = document.createElement('button');
+      dot.className = 'nav-dot';
+      dot.setAttribute('aria-label', `Go to slide ${i + 1}`);
+      dot.addEventListener('click', () => {
+        this.slides[i].scrollIntoView({ behavior: 'smooth' });
+      });
+      this.dots.appendChild(dot);
+    });
+    this.dotElements = this.dots.querySelectorAll('.nav-dot');
+  }
+
+  setupObserver() {
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('visible');
+          const idx = Array.from(this.slides).indexOf(entry.target);
+          this.currentSlide = idx;
+          this.updateDots();
+          this.updateProgress();
+          this.animateBars(entry.target);
+          this.animateCounters(entry.target);
+        }
+      });
+    }, { threshold: 0.5 });
+
+    this.slides.forEach(slide => observer.observe(slide));
+  }
+
+  setupKeyboard() {
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowDown' || e.key === 'ArrowRight' || e.key === ' ' || e.key === 'PageDown') {
+        e.preventDefault();
+        this.goToSlide(this.currentSlide + 1);
+      } else if (e.key === 'ArrowUp' || e.key === 'ArrowLeft' || e.key === 'PageUp') {
+        e.preventDefault();
+        this.goToSlide(this.currentSlide - 1);
+      } else if (e.key === 'Home') {
+        e.preventDefault();
+        this.goToSlide(0);
+      } else if (e.key === 'End') {
+        e.preventDefault();
+        this.goToSlide(this.slides.length - 1);
+      }
+    });
+  }
+
+  setupTouch() {
+    document.addEventListener('touchstart', (e) => {
+      this.touchStartY = e.changedTouches[0].screenY;
+    }, { passive: true });
+
+    document.addEventListener('touchend', (e) => {
+      this.touchEndY = e.changedTouches[0].screenY;
+      const diff = this.touchStartY - this.touchEndY;
+      if (Math.abs(diff) > 50) {
+        if (diff > 0) {
+          this.goToSlide(this.currentSlide + 1);
+        } else {
+          this.goToSlide(this.currentSlide - 1);
+        }
+      }
+    }, { passive: true });
+  }
+
+  goToSlide(index) {
+    if (index >= 0 && index < this.slides.length) {
+      this.slides[index].scrollIntoView({ behavior: 'smooth' });
+    }
+  }
+
+  updateDots() {
+    this.dotElements.forEach((dot, i) => {
+      dot.classList.toggle('active', i === this.currentSlide);
+    });
+  }
+
+  updateProgress() {
+    const pct = ((this.currentSlide) / (this.slides.length - 1)) * 100;
+    this.progressBar.style.width = pct + '%';
+  }
+
+  animateBars(slide) {
+    // Benchmark bars
+    const bars = slide.querySelectorAll('.bench-bar[data-width]');
+    bars.forEach((bar, i) => {
+      setTimeout(() => {
+        bar.style.width = bar.dataset.width + '%';
+      }, i * 200);
+    });
+
+    // Quant bars
+    const qbars = slide.querySelectorAll('.quant-bar-fill[data-width]');
+    qbars.forEach((bar, i) => {
+      setTimeout(() => {
+        bar.style.width = bar.dataset.width + '%';
+      }, i * 150);
+    });
+  }
+
+  animateCounters(slide) {
+    if (slide.id !== 'slide-numbers') return;
+    if (this.countersAnimated) return;
+    this.countersAnimated = true;
+
+    const counters = slide.querySelectorAll('.stat-number[data-target]');
+    counters.forEach(counter => {
+      const target = parseInt(counter.dataset.target, 10);
+      const duration = 1500;
+      const start = performance.now();
+
+      function update(now) {
+        const elapsed = now - start;
+        const progress = Math.min(elapsed / duration, 1);
+        const eased = 1 - Math.pow(1 - progress, 3);
+        counter.textContent = Math.round(eased * target);
+        if (progress < 1) requestAnimationFrame(update);
+      }
+      requestAnimationFrame(update);
+    });
+  }
+}
+
+/* === INIT === */
+document.addEventListener('DOMContentLoaded', () => {
+  new SlidePresentation();
+});
+</script>
+</body>
+</html>
