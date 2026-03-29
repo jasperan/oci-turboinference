@@ -1,0 +1,38 @@
+{
+  "benchmark": "Qwen3.5-27B quantization comparison",
+  "hardware": "NVIDIA A10 23GB VRAM, 236GB RAM",
+  "ollama_version": "0.18.3",
+  "date": "2026-03-29",
+  "results": [
+    {
+      "quant": "IQ2_XXS",
+      "size_gb": 8.6,
+      "vram_mib": 13395,
+      "gen_tps": 27.1,
+      "prompt_tps": 153.2,
+      "notes": "Extreme 2-bit, full GPU"
+    },
+    {
+      "quant": "IQ4_XS",
+      "size_gb": 15.0,
+      "vram_mib": 19339,
+      "gen_tps": 23.9,
+      "prompt_tps": 150.7,
+      "notes": "Aggressive 4-bit, full GPU"
+    },
+    {
+      "quant": "Q4_K_M",
+      "size_gb": 17.0,
+      "vram_mib": 22519,
+      "gen_tps": 21.9,
+      "prompt_tps": 243.1,
+      "notes": "Standard 4-bit (Ollama default)"
+    }
+  ],
+  "key_findings": [
+    "IQ2_XXS gen speed (27 tok/s) exceeds Q4_K_M (22 tok/s) by 24% due to lower memory pressure",
+    "IQ2_XXS uses 9GB less VRAM than Q4_K_M, leaving room for longer context or concurrent requests",
+    "Q4_K_M wins on prompt eval (245 vs 153 tok/s) due to higher precision batched matmuls",
+    "Trade-off: 2-bit quality is noticeably lower for complex reasoning tasks"
+  ]
+}
