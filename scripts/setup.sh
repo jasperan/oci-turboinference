@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -e
+set -eo pipefail
 LOG_PREFIX="[setup]"
 
 MODEL_ID="${MODEL_ID:-Qwen/Qwen3.5-35B-A3B}"
@@ -49,25 +49,21 @@ pip install pyyaml httpx 2>/dev/null || true
 CONFIG_FILE="$OPT_DIR/inference-config.json"
 python3 -c "
 import sys, json
-sys.path.insert(0, '$OPT_DIR')
+from dataclasses import asdict
+
+sys.path.insert(0, sys.argv[1])
 from profiler.detect import detect_hardware
 from profiler.strategy import pick_strategy
 
 hw = detect_hardware()
-strategy = pick_strategy(hw, '$MODEL_ID')
-config = {
-    'model_id': '$MODEL_ID',
-    'backend': strategy.get('backend', 'llamacpp'),
-    'model_url': strategy.get('model_url', '$MODEL_ID'),
-    'quant_type': strategy.get('quant_type', 'Q4_K_M'),
-    'n_gpu_layers': strategy.get('n_gpu_layers', 999),
-    'ctx_size': strategy.get('ctx_size', 8192),
-    'cpu_offload_gb': strategy.get('cpu_offload_gb', 0),
-}
-with open('$CONFIG_FILE', 'w') as f:
-    json.dump(config, f, indent=2)
-print(json.dumps(config, indent=2))
-"
+config = pick_strategy(sys.argv[2], hw)
+output = asdict(config)
+output['model_id'] = sys.argv[2]
+
+with open(sys.argv[3], 'w') as f:
+    json.dump(output, f, indent=2)
+print(json.dumps(output, indent=2))
+" "$OPT_DIR" "$MODEL_ID" "$CONFIG_FILE"
 echo "$LOG_PREFIX Config written to $CONFIG_FILE"
 
 # Step 6: Install Pi agent

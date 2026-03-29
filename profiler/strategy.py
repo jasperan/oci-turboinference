@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import functools
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -25,8 +26,9 @@ class InferenceConfig:
     extra_args: dict = field(default_factory=dict)
 
 
+@functools.lru_cache(maxsize=1)
 def _load_curated_models() -> dict:
-    """Load the curated_models.yaml file and return parsed dict."""
+    """Load the curated_models.yaml file and return parsed dict (cached)."""
     yaml_path = Path(__file__).parent / "curated_models.yaml"
     with open(yaml_path, "r") as f:
         data = yaml.safe_load(f)

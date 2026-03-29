@@ -38,8 +38,12 @@ def _parse_vram() -> tuple[str | None, float]:
     if output is None:
         return None, 0.0
 
+    lines = output.splitlines()
+    if not lines:
+        return None, 0.0
+
     # Take the first GPU line
-    line = output.splitlines()[0]
+    line = lines[0]
     parts = [p.strip() for p in line.split(",")]
     if len(parts) < 2:
         return None, 0.0

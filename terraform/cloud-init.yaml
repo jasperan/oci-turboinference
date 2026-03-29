@@ -25,5 +25,8 @@ write_files:
 runcmd:
   - mkdir -p /opt/turboinference
   - git clone https://github.com/jasperan/oci-turboinference.git /opt/turboinference/repo
-  - source /opt/turboinference/setup-env.sh
-  - cd /opt/turboinference/repo && bash scripts/setup.sh
+  - |
+    export MODEL_ID="${model_id}"
+    export API_PORT="${api_port}"
+    export INSTALL_PI="${install_pi}"
+    cd /opt/turboinference/repo && bash scripts/setup.sh

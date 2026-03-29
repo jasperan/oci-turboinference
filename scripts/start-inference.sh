@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -e
+set -eo pipefail
 LOG_PREFIX="[start-inference]"
 
 CONFIG_FILE="${1:-/opt/turboinference/inference-config.json}"
@@ -12,13 +12,17 @@ fi
 
 echo "$LOG_PREFIX Reading config from $CONFIG_FILE..."
 
-# Extract fields from JSON config
-BACKEND=$(python3 -c "import json; c=json.load(open('$CONFIG_FILE')); print(c.get('backend','llamacpp'))")
-MODEL_URL=$(python3 -c "import json; c=json.load(open('$CONFIG_FILE')); print(c.get('model_url',''))")
-QUANT_TYPE=$(python3 -c "import json; c=json.load(open('$CONFIG_FILE')); print(c.get('quant_type','Q4_K_M'))")
-N_GPU_LAYERS=$(python3 -c "import json; c=json.load(open('$CONFIG_FILE')); print(c.get('n_gpu_layers',999))")
-CTX_SIZE=$(python3 -c "import json; c=json.load(open('$CONFIG_FILE')); print(c.get('ctx_size',8192))")
-CPU_OFFLOAD=$(python3 -c "import json; c=json.load(open('$CONFIG_FILE')); print(c.get('cpu_offload_gb',0))")
+# Extract all fields from JSON config in a single Python call
+eval "$(python3 -c "
+import json, sys
+c = json.load(open(sys.argv[1]))
+print(f'BACKEND={c.get(\"backend\", \"llamacpp\")}')
+print(f'MODEL_URL={c.get(\"model_url\", \"\")}')
+print(f'QUANT_TYPE={c.get(\"quant_type\", \"Q4_K_M\")}')
+print(f'N_GPU_LAYERS={c.get(\"n_gpu_layers\", 999)}')
+print(f'CTX_SIZE={c.get(\"ctx_size\", 8192)}')
+print(f'CPU_OFFLOAD={c.get(\"cpu_offload_gb\", 0)}')
+" "$CONFIG_FILE")"
 
 echo "$LOG_PREFIX Backend: $BACKEND"
 echo "$LOG_PREFIX Model: $MODEL_URL"
@@ -45,37 +49,31 @@ elif [ "$BACKEND" = "llamacpp" ]; then
         mkdir -p "$MODEL_DIR"
 
         echo "$LOG_PREFIX Downloading GGUF: repo=$REPO quant=$QUANT..."
-        MODEL_FILE=$(python3 -c "
-from huggingface_hub import hf_hub_download
-import glob, os
-path = hf_hub_download(
-    repo_id='$REPO',
-    filename='*${QUANT}*.gguf',
-    local_dir='$MODEL_DIR',
-    local_dir_use_symlinks=False
-)
-print(path)
-" 2>/dev/null || true)
+        pip install -q huggingface-hub 2>/dev/null || true
 
-        # Fallback: search for downloaded file
-        if [ -z "$MODEL_FILE" ] || [ ! -f "$MODEL_FILE" ]; then
-            echo "$LOG_PREFIX Trying glob-based download..."
-            MODEL_FILE=$(python3 << 'PYEOF'
-import os, glob
+        # Use snapshot_download with allow_patterns (supports globs, unlike hf_hub_download)
+        MODEL_FILE=$(python3 -c "
+import os, sys, glob
 from huggingface_hub import snapshot_download
+
+repo = sys.argv[1]
+quant = sys.argv[2]
+model_dir = sys.argv[3]
+
 local = snapshot_download(
-    repo_id="REPO_PLACEHOLDER",
-    allow_patterns=["*QUANT_PLACEHOLDER*.gguf"],
-    local_dir="/opt/turboinference/models",
-    local_dir_use_symlinks=False
+    repo_id=repo,
+    allow_patterns=[f'*{quant}*.gguf'],
+    local_dir=model_dir,
+    local_dir_use_symlinks=False,
 )
-files = glob.glob(os.path.join(local, "**/*.gguf"), recursive=True)
+files = glob.glob(os.path.join(local, '**/*.gguf'), recursive=True)
+if not files:
+    files = glob.glob(os.path.join(model_dir, '**/*.gguf'), recursive=True)
 if files:
     print(sorted(files, key=os.path.getsize, reverse=True)[0])
-PYEOF
-            )
-            MODEL_FILE=$(echo "$MODEL_FILE" | sed "s|REPO_PLACEHOLDER|$REPO|;s|QUANT_PLACEHOLDER|$QUANT|")
-        fi
+else:
+    sys.exit(1)
+" "$REPO" "$QUANT" "$MODEL_DIR" 2>&1) || true
 
         if [ -z "$MODEL_FILE" ] || [ ! -f "$MODEL_FILE" ]; then
             echo "$LOG_PREFIX Failed to download model. Exiting."
