@@ -280,7 +280,7 @@ def run_prompt(
                     if not choices:
                         continue
                     delta = choices[0].get("delta", {})
-                    content = delta.get("content", "")
+                    content = delta.get("content", "") or delta.get("reasoning_content", "")
                     if content:
                         if first_token_time is None:
                             first_token_time = time.perf_counter()
@@ -335,7 +335,7 @@ def parse_streaming_chunks(lines: list[str]) -> tuple[int, list[str]]:
         if not choices:
             continue
         delta = choices[0].get("delta", {})
-        content = delta.get("content", "")
+        content = delta.get("content", "") or delta.get("reasoning_content", "")
         if content:
             token_count += 1
             pieces.append(content)

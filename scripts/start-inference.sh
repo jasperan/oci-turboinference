@@ -89,7 +89,7 @@ else:
         --model "$MODEL_FILE"
         --ctx-size "$CTX_SIZE"
         --n-gpu-layers "$N_GPU_LAYERS"
-        --flash-attn
+        --flash-attn on
     )
 
     # Add KV cache quantization if GPU present
