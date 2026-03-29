@@ -5,11 +5,12 @@
 models:
   "Qwen/Qwen3.5-35B-A3B":
     params_b: 35.0
+    active_params_b: 3.0
     tiers:
       gpu_a10:
         backend: vllm
-        quant_type: AWQ
-        model_url: "Qwen/Qwen3.5-35B-A3B-AWQ"
+        quant_type: fp16
+        model_url: "Qwen/Qwen3.5-35B-A3B"
         n_gpu_layers: -1
         ctx_size: 16384
         cpu_offload_gb: 0

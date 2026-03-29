@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import functools
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 
 import yaml
@@ -23,7 +23,6 @@ class InferenceConfig:
     ctx_size: int
     cpu_offload_gb: float = 0.0
     estimated_tps: float = 0.0
-    extra_args: dict = field(default_factory=dict)
 
 
 @functools.lru_cache(maxsize=1)
@@ -39,6 +38,8 @@ def _select_hw_tier(hw: HardwareInfo) -> str:
     """Map hardware capabilities to a tier key."""
     if hw.has_gpu and hw.vram_gb >= 20:
         return "gpu_a10"
+    if hw.has_gpu and hw.vram_gb >= 8:
+        return "gpu_small"
     if hw.ram_gb >= 200:
         return "cpu_256"
     if hw.ram_gb >= 100:
@@ -51,10 +52,18 @@ def _estimate_model_size_gb(model_id: str) -> float:
 
     Looks for patterns like '70B', '35B', '14B', '671B' etc.
     Returns N * 2.0 as an fp16 size estimate.
+
+    For MoE models with active-param markers (e.g. 'A3B', 'A2.7B'),
+    uses the active params instead, since only a fraction activates per token.
     """
     match = re.search(r"(\d+(?:\.\d+)?)B", model_id, re.IGNORECASE)
     if match:
         params_b = float(match.group(1))
+        # Check for MoE active params pattern like "A3B", "A2.7B"
+        moe_match = re.search(r"A(\d+(?:\.\d+)?)B", model_id, re.IGNORECASE)
+        if moe_match:
+            active_b = float(moe_match.group(1))
+            return active_b * 2.0  # MoE active params at fp16
         return params_b * 2.0
     return 14.0  # default guess: 7B model fp16
 
@@ -90,6 +99,31 @@ def _fallback_strategy(model_id: str, hw: HardwareInfo) -> InferenceConfig:
             estimated_tps=max(0.5, 20.0 * ratio),
         )
 
+    if tier == "gpu_small":
+        # Small GPU (T4 16GB, RTX 3060 12GB): more aggressive quant than gpu_a10
+        if size_gb <= hw.vram_gb * 0.8:
+            return InferenceConfig(
+                backend="llamacpp",
+                model_url=model_id,
+                quant_type="Q4_K_M",
+                n_gpu_layers=-1,
+                ctx_size=8192,
+                estimated_tps=20.0,
+            )
+        # Partial offload with aggressive quantization
+        offload = max(0.0, size_gb - hw.vram_gb)
+        ratio = min(1.0, hw.vram_gb / size_gb) if size_gb > 0 else 0.3
+        gpu_layers = int(ratio * 40)
+        return InferenceConfig(
+            backend="llamacpp",
+            model_url=model_id,
+            quant_type="IQ2_XXS" if size_gb < 40 else "IQ1_S",
+            n_gpu_layers=gpu_layers,
+            ctx_size=2048 if size_gb > 60 else 4096,
+            cpu_offload_gb=round(offload, 1),
+            estimated_tps=max(0.3, 12.0 * ratio),
+        )
+
     # CPU-only tiers
     available_ram = hw.ram_gb * 0.85  # leave headroom
     if size_gb * 0.3 <= available_ram:
@@ -118,39 +152,50 @@ def pick_strategy(model_id: str, hw: HardwareInfo) -> InferenceConfig:
     curated = _load_curated_models()
     tier = _select_hw_tier(hw)
 
-    # Exact match first
-    if model_id in curated:
-        tiers = curated[model_id].get("tiers", {})
-        if tier in tiers:
-            cfg = tiers[tier]
-            return InferenceConfig(
-                backend=cfg["backend"],
-                model_url=cfg["model_url"],
-                quant_type=cfg["quant_type"],
-                n_gpu_layers=cfg["n_gpu_layers"],
-                ctx_size=cfg["ctx_size"],
-                cpu_offload_gb=cfg.get("cpu_offload_gb", 0),
-                estimated_tps=cfg.get("estimated_tps", 0),
-            )
+    # Matching with priority scoring:
+    #   1 = exact match on full model ID
+    #   2 = exact match on model name (after last "/")
+    #   3 = substring containment
+    # At the same priority, prefer the longer curated key (more specific).
+    best_entry = None
+    best_priority = 99
+    best_key_len = 0
 
-    # Partial match: check if model_id appears as substring in any curated key
-    # or if a curated key appears as substring in model_id
+    model_short = model_id.split("/")[-1].lower()
+
     for curated_id, entry in curated.items():
+        tiers = entry.get("tiers", {})
+        if tier not in tiers:
+            continue
+
         curated_short = curated_id.split("/")[-1].lower()
-        model_short = model_id.split("/")[-1].lower()
-        if curated_short in model_short or model_short in curated_short:
-            tiers = entry.get("tiers", {})
-            if tier in tiers:
-                cfg = tiers[tier]
-                return InferenceConfig(
-                    backend=cfg["backend"],
-                    model_url=cfg["model_url"],
-                    quant_type=cfg["quant_type"],
-                    n_gpu_layers=cfg["n_gpu_layers"],
-                    ctx_size=cfg["ctx_size"],
-                    cpu_offload_gb=cfg.get("cpu_offload_gb", 0),
-                    estimated_tps=cfg.get("estimated_tps", 0),
-                )
+
+        if curated_id == model_id:
+            priority = 1
+        elif curated_short == model_short:
+            priority = 2
+        elif curated_short in model_short or model_short in curated_short:
+            priority = 3
+        else:
+            continue
+
+        key_len = len(curated_id)
+        if priority < best_priority or (priority == best_priority and key_len > best_key_len):
+            best_priority = priority
+            best_key_len = key_len
+            best_entry = tiers[tier]
+
+    if best_entry is not None:
+        cfg = best_entry
+        return InferenceConfig(
+            backend=cfg["backend"],
+            model_url=cfg["model_url"],
+            quant_type=cfg["quant_type"],
+            n_gpu_layers=cfg["n_gpu_layers"],
+            ctx_size=cfg["ctx_size"],
+            cpu_offload_gb=cfg.get("cpu_offload_gb", 0),
+            estimated_tps=cfg.get("estimated_tps", 0),
+        )
 
     # No curated match: fall back to estimation
     return _fallback_strategy(model_id, hw)
