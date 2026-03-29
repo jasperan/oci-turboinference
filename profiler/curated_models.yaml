@@ -459,6 +459,22 @@ models:
         ctx_size: 4096
         cpu_offload_gb: 10.0
         estimated_tps: 2.5
+      gpu_64:
+        backend: llamacpp
+        quant_type: IQ1_S
+        model_url: "unsloth/Qwen3.5-397B-A17B-GGUF"
+        n_gpu_layers: -1
+        ctx_size: 4096
+        cpu_offload_gb: 0
+        estimated_tps: 5.0
+      gpu_a10:
+        backend: llamacpp
+        quant_type: IQ1_S
+        model_url: "unsloth/Qwen3.5-397B-A17B-GGUF"
+        n_gpu_layers: 8
+        ctx_size: 2048
+        cpu_offload_gb: 20.0
+        estimated_tps: 0.4
       cpu_256:
         backend: llamacpp
         quant_type: IQ1_S
@@ -487,6 +503,22 @@ models:
         ctx_size: 4096
         cpu_offload_gb: 10.0
         estimated_tps: 2.5
+      gpu_64:
+        backend: llamacpp
+        quant_type: IQ1_S
+        model_url: "unsloth/MiniMax-M2.5-GGUF"
+        n_gpu_layers: -1
+        ctx_size: 4096
+        cpu_offload_gb: 0
+        estimated_tps: 5.0
+      gpu_a10:
+        backend: llamacpp
+        quant_type: IQ1_S
+        model_url: "unsloth/MiniMax-M2.5-GGUF"
+        n_gpu_layers: 10
+        ctx_size: 2048
+        cpu_offload_gb: 20.0
+        estimated_tps: 0.6
 
   "cerebras/GLM-4.7-REAP-218B-A32B":
     params_b: 218.0
@@ -508,3 +540,19 @@ models:
         ctx_size: 4096
         cpu_offload_gb: 10.0
         estimated_tps: 2.5
+      gpu_64:
+        backend: llamacpp
+        quant_type: IQ1_S
+        model_url: "unsloth/GLM-4.7-REAP-218B-A32B-GGUF"
+        n_gpu_layers: -1
+        ctx_size: 4096
+        cpu_offload_gb: 0
+        estimated_tps: 5.0
+      gpu_a10:
+        backend: llamacpp
+        quant_type: IQ1_S
+        model_url: "unsloth/GLM-4.7-REAP-218B-A32B-GGUF"
+        n_gpu_layers: 10
+        ctx_size: 2048
+        cpu_offload_gb: 20.0
+        estimated_tps: 0.6
