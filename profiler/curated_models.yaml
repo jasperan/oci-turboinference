@@ -18,7 +18,7 @@ models:
       cpu_128:
         backend: llamacpp
         quant_type: Q4_K_M
-        model_url: "bartowski/Qwen3.5-35B-A3B-GGUF"
+        model_url: "unsloth/Qwen3.5-35B-A3B-GGUF"
         n_gpu_layers: 0
         ctx_size: 8192
         cpu_offload_gb: 0
@@ -30,7 +30,7 @@ models:
       gpu_a10:
         backend: llamacpp
         quant_type: IQ4_XS
-        model_url: "bartowski/Qwen3.5-27B-GGUF"
+        model_url: "unsloth/Qwen3.5-27B-GGUF"
         n_gpu_layers: 40
         ctx_size: 8192
         cpu_offload_gb: 6.0
@@ -38,7 +38,7 @@ models:
       cpu_128:
         backend: llamacpp
         quant_type: Q4_K_M
-        model_url: "bartowski/Qwen3.5-27B-GGUF"
+        model_url: "unsloth/Qwen3.5-27B-GGUF"
         n_gpu_layers: 0
         ctx_size: 8192
         cpu_offload_gb: 0
@@ -70,7 +70,7 @@ models:
       gpu_a10:
         backend: llamacpp
         quant_type: IQ2_XXS
-        model_url: "bartowski/Llama-3.1-70B-GGUF"
+        model_url: "bartowski/Meta-Llama-3.1-70B-Instruct-GGUF"
         n_gpu_layers: 25
         ctx_size: 4096
         cpu_offload_gb: 12.0
@@ -78,7 +78,7 @@ models:
       cpu_256:
         backend: llamacpp
         quant_type: Q4_K_M
-        model_url: "bartowski/Llama-3.1-70B-GGUF"
+        model_url: "bartowski/Meta-Llama-3.1-70B-Instruct-GGUF"
         n_gpu_layers: 0
         ctx_size: 8192
         cpu_offload_gb: 0
@@ -110,7 +110,7 @@ models:
       gpu_a10:
         backend: llamacpp
         quant_type: IQ1_S
-        model_url: "bartowski/DeepSeek-V3-GGUF"
+        model_url: "MaziyarPanahi/DeepSeek-V3-0324-GGUF"
         n_gpu_layers: 10
         ctx_size: 2048
         cpu_offload_gb: 18.0
@@ -118,7 +118,7 @@ models:
       cpu_256:
         backend: llamacpp
         quant_type: Q2_K
-        model_url: "bartowski/DeepSeek-V3-GGUF"
+        model_url: "MaziyarPanahi/DeepSeek-V3-0324-GGUF"
         n_gpu_layers: 0
         ctx_size: 4096
         cpu_offload_gb: 0
@@ -170,7 +170,7 @@ models:
       gpu_a10:
         backend: vllm
         quant_type: AWQ
-        model_url: "microsoft/phi-4-AWQ"
+        model_url: "stelterlab/phi-4-AWQ"
         n_gpu_layers: -1
         ctx_size: 16384
         cpu_offload_gb: 0
@@ -190,7 +190,7 @@ models:
       gpu_a10:
         backend: llamacpp
         quant_type: Q3_K_M
-        model_url: "bartowski/gemma-3-27b-it-GGUF"
+        model_url: "unsloth/gemma-3-27b-it-GGUF"
         n_gpu_layers: 35
         ctx_size: 8192
         cpu_offload_gb: 5.0
@@ -198,7 +198,7 @@ models:
       cpu_128:
         backend: llamacpp
         quant_type: Q4_K_M
-        model_url: "bartowski/gemma-3-27b-it-GGUF"
+        model_url: "unsloth/gemma-3-27b-it-GGUF"
         n_gpu_layers: 0
         ctx_size: 8192
         cpu_offload_gb: 0

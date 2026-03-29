@@ -118,7 +118,7 @@ def test_tighter_matching_exact_preferred():
     cfg = pick_strategy("Qwen/Qwen3.5-27B", _hw_a10())
     assert isinstance(cfg, InferenceConfig)
     # Should match the exact Qwen/Qwen3.5-27B entry, not the longer distilled variant
-    assert "bartowski/Qwen3.5-27B-GGUF" == cfg.model_url
+    assert "unsloth/Qwen3.5-27B-GGUF" == cfg.model_url
 
 
 def test_partial_match_prefers_exact():
@@ -127,7 +127,7 @@ def test_partial_match_prefers_exact():
     assert isinstance(cfg, InferenceConfig)
     # Must NOT pick the Jackrong distilled model URL
     assert "Jackrong" not in cfg.model_url
-    assert "bartowski/Qwen3.5-27B-GGUF" == cfg.model_url
+    assert "unsloth/Qwen3.5-27B-GGUF" == cfg.model_url
 
 
 def test_cpu_256_tier():
