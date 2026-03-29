@@ -65,10 +65,19 @@ variables:
     enum:
       - "Qwen/Qwen3.5-35B-A3B"
       - "Qwen/Qwen2.5-72B-Instruct-AWQ"
+      - "Qwen/Qwen3-Coder-Next"
+      - "Qwen/Qwen3.5-122B-A30B"
+      - "Qwen/Qwen3.5-397B-A17B"
       - "meta-llama/Llama-3.3-70B-Instruct"
       - "meta-llama/Llama-3.1-8B-Instruct"
-      - "mistralai/Mistral-Small-24B-Instruct-2501"
+      - "mistralai/Mistral-Small-3.2-24B-Instruct-2506"
       - "mistralai/Mixtral-8x7B-Instruct-v0.1"
+      - "NousResearch/Hermes-4-70B"
+      - "nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-BF16"
+      - "stepfun-ai/Step-3.5-Flash"
+      - "MiniMaxAI/MiniMax-M2.5"
+      - "cerebras/GLM-4.7-REAP-218B-A32B"
+      - "zai-org/GLM-4.6V-Flash"
       - "deepseek-ai/DeepSeek-R1-Distill-Llama-70B"
       - "deepseek-ai/DeepSeek-R1-Distill-Qwen-32B"
       - "nvidia/Llama-3.1-Nemotron-70B-Instruct-HF"
@@ -90,10 +99,13 @@ variables:
   instance_type:
     type: enum
     title: "Instance Type"
-    description: "GPU (VM.GPU.A10.1) or CPU (VM.Standard.E5.Flex)."
+    description: "Select GPU shape or CPU flex instance."
     default: "gpu"
     enum:
       - "gpu"
+      - "gpu_2xa10"
+      - "gpu_4xa10"
+      - "gpu_a100"
       - "cpu"
     required: true
 

@@ -23,6 +23,7 @@ class InferenceConfig:
     ctx_size: int
     cpu_offload_gb: float = 0.0
     estimated_tps: float = 0.0
+    tensor_parallel: int = 1
 
 
 @functools.lru_cache(maxsize=1)
@@ -36,10 +37,17 @@ def _load_curated_models() -> dict:
 
 def _select_hw_tier(hw: HardwareInfo) -> str:
     """Map hardware capabilities to a tier key."""
-    if hw.has_gpu and hw.vram_gb >= 20:
-        return "gpu_a10"
-    if hw.has_gpu and hw.vram_gb >= 8:
-        return "gpu_small"
+    if hw.has_gpu:
+        if hw.vram_gb >= 150:
+            return "gpu_192"
+        if hw.vram_gb >= 72:
+            return "gpu_96"
+        if hw.vram_gb >= 48:
+            return "gpu_64"
+        if hw.vram_gb >= 20:
+            return "gpu_a10"
+        if hw.vram_gb >= 8:
+            return "gpu_small"
     if hw.ram_gb >= 200:
         return "cpu_256"
     if hw.ram_gb >= 100:
@@ -72,6 +80,45 @@ def _fallback_strategy(model_id: str, hw: HardwareInfo) -> InferenceConfig:
     """Generate a best-effort config for models not in the curated table."""
     size_gb = _estimate_model_size_gb(model_id)
     tier = _select_hw_tier(hw)
+
+    # Multi-GPU / large VRAM tiers (48GB+)
+    if tier in ("gpu_192", "gpu_96", "gpu_64"):
+        tp = hw.gpu_count if hw.gpu_count > 1 else 1
+        # Model fits entirely on GPU at fp16
+        if size_gb <= hw.vram_gb * 0.9:
+            return InferenceConfig(
+                backend="vllm",
+                model_url=model_id,
+                quant_type="fp16",
+                n_gpu_layers=-1,
+                ctx_size=32768 if hw.vram_gb >= 150 else 16384,
+                estimated_tps=50.0,
+                tensor_parallel=tp,
+            )
+        # Model fits with AWQ quantization (~4x compression)
+        if size_gb * 0.25 <= hw.vram_gb * 0.9:
+            return InferenceConfig(
+                backend="vllm",
+                model_url=model_id,
+                quant_type="AWQ",
+                n_gpu_layers=-1,
+                ctx_size=16384,
+                estimated_tps=40.0,
+                tensor_parallel=tp,
+            )
+        # Larger models: llamacpp with partial offload
+        offload = max(0.0, size_gb - hw.vram_gb)
+        ratio = min(1.0, hw.vram_gb / size_gb) if size_gb > 0 else 0.5
+        gpu_layers = int(ratio * 80)
+        return InferenceConfig(
+            backend="llamacpp",
+            model_url=model_id,
+            quant_type="Q4_K_M" if size_gb < hw.vram_gb * 3 else "IQ2_XXS",
+            n_gpu_layers=gpu_layers,
+            ctx_size=8192,
+            cpu_offload_gb=round(offload, 1),
+            estimated_tps=max(2.0, 30.0 * ratio),
+        )
 
     if tier == "gpu_a10":
         # Small models fit entirely on GPU with vllm
@@ -187,7 +234,7 @@ def pick_strategy(model_id: str, hw: HardwareInfo) -> InferenceConfig:
 
     if best_entry is not None:
         cfg = best_entry
-        return InferenceConfig(
+        config = InferenceConfig(
             backend=cfg["backend"],
             model_url=cfg["model_url"],
             quant_type=cfg["quant_type"],
@@ -196,6 +243,11 @@ def pick_strategy(model_id: str, hw: HardwareInfo) -> InferenceConfig:
             cpu_offload_gb=cfg.get("cpu_offload_gb", 0),
             estimated_tps=cfg.get("estimated_tps", 0),
         )
+    else:
+        config = _fallback_strategy(model_id, hw)
 
-    # No curated match: fall back to estimation
-    return _fallback_strategy(model_id, hw)
+    # Auto-set tensor parallelism for multi-GPU vLLM setups
+    if config.backend == "vllm" and hw.gpu_count > 1:
+        config.tensor_parallel = hw.gpu_count
+
+    return config

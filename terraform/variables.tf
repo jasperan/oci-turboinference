@@ -30,11 +30,11 @@ variable "custom_model_url" {
 variable "instance_type" {
   type        = string
   default     = "gpu"
-  description = "Instance type: 'gpu' for VM.GPU.A10.1, 'cpu' for VM.Standard.E5.Flex."
+  description = "Instance type: 'gpu' (1xA10 24GB), 'gpu_2xa10' (2xA10 48GB), 'gpu_4xa10' (4xA10 96GB), 'gpu_a100' (8xA100 640GB), 'cpu' (flex)."
 
   validation {
-    condition     = contains(["gpu", "cpu"], var.instance_type)
-    error_message = "instance_type must be 'gpu' or 'cpu'."
+    condition     = contains(["gpu", "gpu_2xa10", "gpu_4xa10", "gpu_a100", "cpu"], var.instance_type)
+    error_message = "instance_type must be one of: gpu, gpu_2xa10, gpu_4xa10, gpu_a100, cpu."
   }
 }
 

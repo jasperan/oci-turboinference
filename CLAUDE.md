@@ -27,8 +27,8 @@ python -m pytest tests/ -v
 ```
 oci-turboinference/
   profiler/
-    detect.py            # Hardware detection (GPU, RAM, disk)
-    strategy.py          # Strategy engine: curated lookup + llmfit fallback
+    detect.py            # Hardware detection (GPU count, VRAM sum, RAM, disk)
+    strategy.py          # Strategy engine: curated lookup + llmfit fallback + tensor parallel
     llmfit_client.py     # Client wrapper for the llmfit Rust binary
     curated_models.yaml  # 10 pre-tested model configs across hardware tiers
   scripts/

@@ -1,6 +1,7 @@
 # Curated inference configurations for known models across hardware tiers.
 # Each model entry has params_b (total params in billions) and per-tier configs.
-# Tiers: gpu_a10 (A10 24GB), cpu_64 (64GB RAM), cpu_128 (128GB RAM), cpu_256 (256GB RAM)
+# GPU tiers: gpu_a10 (24GB), gpu_64 (48-64GB), gpu_96 (96GB), gpu_192 (192GB+)
+# CPU tiers: cpu_64 (64GB RAM), cpu_128 (128GB RAM), cpu_256 (256GB RAM)
 
 models:
   "Qwen/Qwen3.5-35B-A3B":
@@ -203,3 +204,307 @@ models:
         ctx_size: 8192
         cpu_offload_gb: 0
         estimated_tps: 3.5
+
+  # ====================================================================
+  # 64 GB VRAM tier models
+  # ====================================================================
+
+  "Qwen/Qwen3-Coder-Next":
+    params_b: 80.0
+    tiers:
+      gpu_64:
+        backend: llamacpp
+        quant_type: Q4_K_M
+        model_url: "unsloth/Qwen3-Coder-Next-GGUF"
+        n_gpu_layers: -1
+        ctx_size: 16384
+        cpu_offload_gb: 0
+        estimated_tps: 25.0
+      gpu_96:
+        backend: llamacpp
+        quant_type: Q6_K
+        model_url: "unsloth/Qwen3-Coder-Next-GGUF"
+        n_gpu_layers: -1
+        ctx_size: 16384
+        cpu_offload_gb: 0
+        estimated_tps: 30.0
+      gpu_a10:
+        backend: llamacpp
+        quant_type: IQ2_XXS
+        model_url: "unsloth/Qwen3-Coder-Next-GGUF"
+        n_gpu_layers: 22
+        ctx_size: 4096
+        cpu_offload_gb: 14.0
+        estimated_tps: 2.5
+      cpu_256:
+        backend: llamacpp
+        quant_type: Q4_K_M
+        model_url: "unsloth/Qwen3-Coder-Next-GGUF"
+        n_gpu_layers: 0
+        ctx_size: 4096
+        cpu_offload_gb: 0
+        estimated_tps: 1.5
+
+  "Qwen/Qwen3.5-122B-A30B":
+    params_b: 122.0
+    active_params_b: 30.0
+    tiers:
+      gpu_64:
+        backend: llamacpp
+        quant_type: IQ4_XS
+        model_url: "unsloth/Qwen3.5-122B-A30B-GGUF"
+        n_gpu_layers: -1
+        ctx_size: 8192
+        cpu_offload_gb: 0
+        estimated_tps: 15.0
+      gpu_96:
+        backend: llamacpp
+        quant_type: Q4_K_M
+        model_url: "unsloth/Qwen3.5-122B-A30B-GGUF"
+        n_gpu_layers: -1
+        ctx_size: 16384
+        cpu_offload_gb: 0
+        estimated_tps: 20.0
+      gpu_a10:
+        backend: llamacpp
+        quant_type: IQ1_S
+        model_url: "unsloth/Qwen3.5-122B-A30B-GGUF"
+        n_gpu_layers: 15
+        ctx_size: 4096
+        cpu_offload_gb: 16.0
+        estimated_tps: 1.5
+      cpu_256:
+        backend: llamacpp
+        quant_type: Q2_K
+        model_url: "unsloth/Qwen3.5-122B-A30B-GGUF"
+        n_gpu_layers: 0
+        ctx_size: 4096
+        cpu_offload_gb: 0
+        estimated_tps: 0.8
+
+  # ====================================================================
+  # 96 GB VRAM tier models
+  # ====================================================================
+
+  "zai-org/GLM-4.6V-Flash":
+    params_b: 10.3
+    tiers:
+      gpu_a10:
+        backend: llamacpp
+        quant_type: Q6_K
+        model_url: "unsloth/GLM-4.6V-Flash-GGUF"
+        n_gpu_layers: -1
+        ctx_size: 16384
+        cpu_offload_gb: 0
+        estimated_tps: 40.0
+      cpu_64:
+        backend: llamacpp
+        quant_type: Q4_K_M
+        model_url: "unsloth/GLM-4.6V-Flash-GGUF"
+        n_gpu_layers: 0
+        ctx_size: 8192
+        cpu_offload_gb: 0
+        estimated_tps: 12.0
+
+  "NousResearch/Hermes-4-70B":
+    params_b: 70.0
+    tiers:
+      gpu_64:
+        backend: llamacpp
+        quant_type: Q4_K_M
+        model_url: "bartowski/NousResearch_Hermes-4-70B-GGUF"
+        n_gpu_layers: -1
+        ctx_size: 16384
+        cpu_offload_gb: 0
+        estimated_tps: 18.0
+      gpu_96:
+        backend: llamacpp
+        quant_type: Q6_K
+        model_url: "bartowski/NousResearch_Hermes-4-70B-GGUF"
+        n_gpu_layers: -1
+        ctx_size: 16384
+        cpu_offload_gb: 0
+        estimated_tps: 22.0
+      gpu_a10:
+        backend: llamacpp
+        quant_type: IQ2_XXS
+        model_url: "bartowski/NousResearch_Hermes-4-70B-GGUF"
+        n_gpu_layers: 25
+        ctx_size: 4096
+        cpu_offload_gb: 12.0
+        estimated_tps: 3.0
+      cpu_256:
+        backend: llamacpp
+        quant_type: Q4_K_M
+        model_url: "bartowski/NousResearch_Hermes-4-70B-GGUF"
+        n_gpu_layers: 0
+        ctx_size: 8192
+        cpu_offload_gb: 0
+        estimated_tps: 2.5
+
+  "nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-BF16":
+    params_b: 120.0
+    active_params_b: 12.0
+    tiers:
+      gpu_96:
+        backend: llamacpp
+        quant_type: Q4_K_M
+        model_url: "unsloth/NVIDIA-Nemotron-3-Super-120B-A12B-GGUF"
+        n_gpu_layers: -1
+        ctx_size: 16384
+        cpu_offload_gb: 0
+        estimated_tps: 18.0
+      gpu_64:
+        backend: llamacpp
+        quant_type: IQ4_XS
+        model_url: "unsloth/NVIDIA-Nemotron-3-Super-120B-A12B-GGUF"
+        n_gpu_layers: -1
+        ctx_size: 8192
+        cpu_offload_gb: 0
+        estimated_tps: 14.0
+      gpu_a10:
+        backend: llamacpp
+        quant_type: IQ1_S
+        model_url: "unsloth/NVIDIA-Nemotron-3-Super-120B-A12B-GGUF"
+        n_gpu_layers: 15
+        ctx_size: 4096
+        cpu_offload_gb: 16.0
+        estimated_tps: 1.5
+      cpu_256:
+        backend: llamacpp
+        quant_type: Q2_K
+        model_url: "unsloth/NVIDIA-Nemotron-3-Super-120B-A12B-GGUF"
+        n_gpu_layers: 0
+        ctx_size: 4096
+        cpu_offload_gb: 0
+        estimated_tps: 0.8
+
+  "mistralai/Mistral-Small-3.2-24B-Instruct-2506":
+    params_b: 24.0
+    tiers:
+      gpu_a10:
+        backend: vllm
+        quant_type: AWQ
+        model_url: "mistralai/Mistral-Small-3.2-24B-Instruct-2506"
+        n_gpu_layers: -1
+        ctx_size: 16384
+        cpu_offload_gb: 0
+        estimated_tps: 50.0
+      gpu_64:
+        backend: vllm
+        quant_type: fp16
+        model_url: "mistralai/Mistral-Small-3.2-24B-Instruct-2506"
+        n_gpu_layers: -1
+        ctx_size: 32768
+        cpu_offload_gb: 0
+        estimated_tps: 60.0
+      cpu_64:
+        backend: llamacpp
+        quant_type: Q4_K_M
+        model_url: "unsloth/Mistral-Small-3.2-24B-Instruct-2506-GGUF"
+        n_gpu_layers: 0
+        ctx_size: 8192
+        cpu_offload_gb: 0
+        estimated_tps: 8.0
+
+  # ====================================================================
+  # 192 GB VRAM tier models
+  # ====================================================================
+
+  "stepfun-ai/Step-3.5-Flash":
+    params_b: 199.0
+    tiers:
+      gpu_192:
+        backend: llamacpp
+        quant_type: Q4_K_M
+        model_url: "bartowski/stepfun-ai_Step-3.5-Flash-GGUF"
+        n_gpu_layers: -1
+        ctx_size: 16384
+        cpu_offload_gb: 0
+        estimated_tps: 15.0
+      gpu_96:
+        backend: llamacpp
+        quant_type: IQ2_XXS
+        model_url: "bartowski/stepfun-ai_Step-3.5-Flash-GGUF"
+        n_gpu_layers: 40
+        ctx_size: 4096
+        cpu_offload_gb: 10.0
+        estimated_tps: 3.0
+      gpu_a10:
+        backend: llamacpp
+        quant_type: IQ1_S
+        model_url: "bartowski/stepfun-ai_Step-3.5-Flash-GGUF"
+        n_gpu_layers: 10
+        ctx_size: 2048
+        cpu_offload_gb: 18.0
+        estimated_tps: 0.8
+
+  "Qwen/Qwen3.5-397B-A17B":
+    params_b: 403.0
+    active_params_b: 17.0
+    tiers:
+      gpu_192:
+        backend: llamacpp
+        quant_type: IQ4_XS
+        model_url: "unsloth/Qwen3.5-397B-A17B-GGUF"
+        n_gpu_layers: -1
+        ctx_size: 8192
+        cpu_offload_gb: 0
+        estimated_tps: 10.0
+      gpu_96:
+        backend: llamacpp
+        quant_type: IQ2_XXS
+        model_url: "unsloth/Qwen3.5-397B-A17B-GGUF"
+        n_gpu_layers: 35
+        ctx_size: 4096
+        cpu_offload_gb: 10.0
+        estimated_tps: 2.5
+      cpu_256:
+        backend: llamacpp
+        quant_type: IQ1_S
+        model_url: "unsloth/Qwen3.5-397B-A17B-GGUF"
+        n_gpu_layers: 0
+        ctx_size: 2048
+        cpu_offload_gb: 0
+        estimated_tps: 0.3
+
+  "MiniMaxAI/MiniMax-M2.5":
+    params_b: 229.0
+    tiers:
+      gpu_192:
+        backend: llamacpp
+        quant_type: Q4_K_M
+        model_url: "unsloth/MiniMax-M2.5-GGUF"
+        n_gpu_layers: -1
+        ctx_size: 16384
+        cpu_offload_gb: 0
+        estimated_tps: 12.0
+      gpu_96:
+        backend: llamacpp
+        quant_type: IQ2_XXS
+        model_url: "unsloth/MiniMax-M2.5-GGUF"
+        n_gpu_layers: 35
+        ctx_size: 4096
+        cpu_offload_gb: 10.0
+        estimated_tps: 2.5
+
+  "cerebras/GLM-4.7-REAP-218B-A32B":
+    params_b: 218.0
+    active_params_b: 32.0
+    tiers:
+      gpu_192:
+        backend: llamacpp
+        quant_type: Q4_K_M
+        model_url: "unsloth/GLM-4.7-REAP-218B-A32B-GGUF"
+        n_gpu_layers: -1
+        ctx_size: 16384
+        cpu_offload_gb: 0
+        estimated_tps: 12.0
+      gpu_96:
+        backend: llamacpp
+        quant_type: IQ2_XXS
+        model_url: "unsloth/GLM-4.7-REAP-218B-A32B-GGUF"
+        n_gpu_layers: 35
+        ctx_size: 4096
+        cpu_offload_gb: 10.0
+        estimated_tps: 2.5

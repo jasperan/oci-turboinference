@@ -15,6 +15,7 @@ class HardwareInfo:
     vram_gb: float
     ram_gb: float
     disk_gb: float
+    gpu_count: int = 1
 
 
 def _run_cmd(cmd: list[str]) -> str | None:
@@ -30,32 +31,38 @@ def _run_cmd(cmd: list[str]) -> str | None:
         return None
 
 
-def _parse_vram() -> tuple[str | None, float]:
-    """Query nvidia-smi for GPU model name and total VRAM in GB."""
+def _parse_vram() -> tuple[str | None, float, int]:
+    """Query nvidia-smi for GPU model name, total VRAM in GB, and GPU count."""
     output = _run_cmd(
         ["nvidia-smi", "--query-gpu=name,memory.total", "--format=csv,noheader,nounits"]
     )
     if output is None:
-        return None, 0.0
+        return None, 0.0, 0
 
-    lines = output.splitlines()
+    lines = [l for l in output.splitlines() if l.strip()]
     if not lines:
-        return None, 0.0
+        return None, 0.0, 0
 
-    # Take the first GPU line
-    line = lines[0]
-    parts = [p.strip() for p in line.split(",")]
-    if len(parts) < 2:
-        return None, 0.0
+    # Take GPU model from first line
+    first_parts = [p.strip() for p in lines[0].split(",")]
+    if len(first_parts) < 2:
+        return None, 0.0, 0
 
-    gpu_model = parts[0]
-    try:
-        vram_mb = float(parts[1])
-        vram_gb = vram_mb / 1024.0
-    except ValueError:
-        vram_gb = 0.0
+    gpu_model = first_parts[0]
 
-    return gpu_model, vram_gb
+    # Sum VRAM across all GPUs
+    total_vram_gb = 0.0
+    gpu_count = 0
+    for line in lines:
+        parts = [p.strip() for p in line.split(",")]
+        if len(parts) >= 2:
+            try:
+                total_vram_gb += float(parts[1]) / 1024.0
+                gpu_count += 1
+            except ValueError:
+                pass
+
+    return gpu_model, total_vram_gb, gpu_count
 
 
 def _parse_ram() -> float:
@@ -94,7 +101,7 @@ def _parse_disk() -> float:
 
 def detect_hardware() -> HardwareInfo:
     """Detect hardware capabilities and return a HardwareInfo summary."""
-    gpu_model, vram_gb = _parse_vram()
+    gpu_model, vram_gb, gpu_count = _parse_vram()
     ram_gb = _parse_ram()
     disk_gb = _parse_disk()
 
@@ -104,4 +111,5 @@ def detect_hardware() -> HardwareInfo:
         vram_gb=vram_gb,
         ram_gb=ram_gb,
         disk_gb=disk_gb,
+        gpu_count=gpu_count,
     )

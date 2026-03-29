@@ -77,6 +77,21 @@ def test_strategy_unknown_model_uses_fallback():
     assert cfg.estimated_tps > 0
 
 
+def _hw_2xa10() -> HardwareInfo:
+    """2x A10 GPUs with 48GB total VRAM, 128GB RAM."""
+    return HardwareInfo(has_gpu=True, gpu_model="NVIDIA A10", vram_gb=48.0, ram_gb=128.0, disk_gb=500.0, gpu_count=2)
+
+
+def _hw_4xa10() -> HardwareInfo:
+    """4x A10 GPUs with 96GB total VRAM, 256GB RAM."""
+    return HardwareInfo(has_gpu=True, gpu_model="NVIDIA A10", vram_gb=96.0, ram_gb=256.0, disk_gb=1000.0, gpu_count=4)
+
+
+def _hw_8xa100() -> HardwareInfo:
+    """8x A100-80GB GPUs with 640GB total VRAM, 1TB RAM."""
+    return HardwareInfo(has_gpu=True, gpu_model="NVIDIA A100-SXM4-80GB", vram_gb=640.0, ram_gb=1024.0, disk_gb=2000.0, gpu_count=8)
+
+
 def _hw_t4() -> HardwareInfo:
     """T4 GPU with 16GB VRAM, 64GB RAM."""
     return HardwareInfo(has_gpu=True, gpu_model="NVIDIA T4", vram_gb=16.0, ram_gb=64.0, disk_gb=500.0)
@@ -128,6 +143,45 @@ def test_partial_match_prefers_exact():
     # Must NOT pick the Jackrong distilled model URL
     assert "Jackrong" not in cfg.model_url
     assert "unsloth/Qwen3.5-27B-GGUF" == cfg.model_url
+
+
+def test_gpu_64_tier_fallback():
+    """2x A10 (48GB) should get gpu_64 tier for a 27B model."""
+    cfg = pick_strategy("some-org/unknown-27B-model", _hw_2xa10())
+    assert isinstance(cfg, InferenceConfig)
+    # 27B fp16 = 54GB > 48GB, so AWQ (54*0.25=13.5GB) fits easily
+    assert cfg.backend == "vllm"
+    assert cfg.quant_type in ("fp16", "AWQ")
+    assert cfg.tensor_parallel == 2  # auto-set from gpu_count
+
+
+def test_gpu_96_tier_fallback():
+    """4x A10 (96GB) should handle 70B model at fp16."""
+    cfg = pick_strategy("some-org/unknown-70B-model", _hw_4xa10())
+    assert isinstance(cfg, InferenceConfig)
+    # 70B fp16 = 140GB > 96GB, but AWQ (140*0.25=35GB) fits
+    assert cfg.backend == "vllm"
+    assert cfg.tensor_parallel == 4
+
+
+def test_gpu_192_tier_fallback():
+    """8x A100 (640GB) should run 120B at fp16 with tensor parallel."""
+    cfg = pick_strategy("some-org/unknown-120B-model", _hw_8xa100())
+    assert isinstance(cfg, InferenceConfig)
+    # 120B fp16 = 240GB < 640GB, fits at fp16
+    assert cfg.backend == "vllm"
+    assert cfg.quant_type == "fp16"
+    assert cfg.tensor_parallel == 8
+    assert cfg.ctx_size == 32768  # large ctx for 192+ tier
+
+
+def test_gpu_192_huge_model():
+    """8x A100 with a truly massive model should still produce a valid config."""
+    cfg = pick_strategy("some-org/unknown-671B-model", _hw_8xa100())
+    assert isinstance(cfg, InferenceConfig)
+    # 671B fp16 = 1342GB > 640GB, needs quant or offload
+    assert cfg.quant_type in ("AWQ", "Q4_K_M", "IQ2_XXS", "IQ4_XS")
+    assert cfg.estimated_tps > 0
 
 
 def test_cpu_256_tier():

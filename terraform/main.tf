@@ -1,6 +1,13 @@
 locals {
   model_id = var.model_selection == "custom" ? var.custom_model_url : var.model_selection
-  shape    = var.instance_type == "gpu" ? "VM.GPU.A10.1" : "VM.Standard.E5.Flex"
+  shape_map = {
+    gpu       = "VM.GPU.A10.1"
+    gpu_2xa10 = "VM.GPU.A10.2"
+    gpu_4xa10 = "BM.GPU.A10.4"
+    gpu_a100  = "BM.GPU.A100-v2.8"
+    cpu       = "VM.Standard.E5.Flex"
+  }
+  shape = local.shape_map[var.instance_type]
 }
 
 # --- Data Sources ---

@@ -22,6 +22,7 @@ print(f'QUANT_TYPE={c.get(\"quant_type\", \"Q4_K_M\")}')
 print(f'N_GPU_LAYERS={c.get(\"n_gpu_layers\", 999)}')
 print(f'CTX_SIZE={c.get(\"ctx_size\", 8192)}')
 print(f'CPU_OFFLOAD={c.get(\"cpu_offload_gb\", 0)}')
+print(f'TENSOR_PARALLEL={c.get(\"tensor_parallel\", 1)}')
 " "$CONFIG_FILE")"
 
 echo "$LOG_PREFIX Backend: $BACKEND"
@@ -30,13 +31,21 @@ echo "$LOG_PREFIX Quant: $QUANT_TYPE, GPU layers: $N_GPU_LAYERS, Context: $CTX_S
 
 if [ "$BACKEND" = "vllm" ]; then
     echo "$LOG_PREFIX Starting vLLM server..."
-    exec vllm serve "$MODEL_URL" \
-        --host 0.0.0.0 \
-        --port "$API_PORT" \
-        --dtype auto \
-        --gpu-memory-utilization 0.92 \
-        --max-model-len "$CTX_SIZE" \
+    VLLM_ARGS=(
+        --host 0.0.0.0
+        --port "$API_PORT"
+        --dtype auto
+        --gpu-memory-utilization 0.92
+        --max-model-len "$CTX_SIZE"
         --cpu-offload-gb "$CPU_OFFLOAD"
+    )
+
+    if [ "$TENSOR_PARALLEL" -gt 1 ] 2>/dev/null; then
+        VLLM_ARGS+=(--tensor-parallel-size "$TENSOR_PARALLEL")
+        echo "$LOG_PREFIX Tensor parallel: $TENSOR_PARALLEL GPUs"
+    fi
+
+    exec vllm serve "$MODEL_URL" "${VLLM_ARGS[@]}"
 
 elif [ "$BACKEND" = "llamacpp" ]; then
     MODEL_FILE="$MODEL_URL"

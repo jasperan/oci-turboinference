@@ -114,10 +114,12 @@ def test_detect_hardware_malformed_nvidia_output(mock_run_cmd):
 
 NVIDIA_SMI_MULTI_GPU = "NVIDIA A10, 24576\nNVIDIA A10, 24576"
 
+NVIDIA_SMI_4X_A10 = "NVIDIA A10, 24576\nNVIDIA A10, 24576\nNVIDIA A10, 24576\nNVIDIA A10, 24576"
+
 
 @patch("profiler.detect._run_cmd")
 def test_detect_hardware_multi_gpu(mock_run_cmd):
-    """nvidia-smi returns two GPU lines. Should take the first GPU only."""
+    """nvidia-smi returns two GPU lines. Should sum VRAM and report gpu_count=2."""
 
     def side_effect(cmd):
         if cmd[0] == "nvidia-smi":
@@ -134,4 +136,27 @@ def test_detect_hardware_multi_gpu(mock_run_cmd):
 
     assert info.has_gpu is True
     assert info.gpu_model == "NVIDIA A10"
-    assert 23.0 < info.vram_gb < 25.0
+    assert 47.0 < info.vram_gb < 49.0  # 2x ~24GB = ~48GB
+    assert info.gpu_count == 2
+
+
+@patch("profiler.detect._run_cmd")
+def test_detect_hardware_4x_gpu(mock_run_cmd):
+    """4x A10 GPUs. Should sum to ~96GB VRAM with gpu_count=4."""
+
+    def side_effect(cmd):
+        if cmd[0] == "nvidia-smi":
+            return NVIDIA_SMI_4X_A10
+        if cmd[0] == "free":
+            return FREE_OUTPUT
+        if cmd[0] == "df":
+            return DF_OUTPUT
+        return None
+
+    mock_run_cmd.side_effect = side_effect
+
+    info = detect_hardware()
+
+    assert info.has_gpu is True
+    assert info.gpu_count == 4
+    assert 95.0 < info.vram_gb < 97.0  # 4x ~24GB = ~96GB
