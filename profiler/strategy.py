@@ -24,6 +24,14 @@ class InferenceConfig:
     cpu_offload_gb: float = 0.0
     estimated_tps: float = 0.0
     tensor_parallel: int = 1
+    # New fields for progressive fallback
+    tier: str = "curated"
+    throughput_class: str = "interactive"
+    estimated_ttft_s: float = 0.0
+    warning: str | None = None
+    draft_model: str | None = None
+    draft_quantization: str | None = None
+    draft_gpu_layers: int | None = None
 
 
 @functools.lru_cache(maxsize=1)

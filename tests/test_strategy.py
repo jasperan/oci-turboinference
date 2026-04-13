@@ -184,6 +184,49 @@ def test_gpu_192_huge_model():
     assert cfg.estimated_tps > 0
 
 
+def test_inference_config_has_new_fields():
+    """InferenceConfig should have tier, throughput_class, warning, and draft model fields."""
+    cfg = InferenceConfig(
+        backend="llamacpp",
+        model_url="test/model",
+        quant_type="Q4_K_M",
+        n_gpu_layers=25,
+        ctx_size=4096,
+        tier="auto_fit",
+        throughput_class="batch",
+        warning="Test warning",
+        draft_model="test/draft",
+        draft_quantization="Q4_K_M",
+        draft_gpu_layers=20,
+        estimated_ttft_s=2.5,
+    )
+    assert cfg.tier == "auto_fit"
+    assert cfg.throughput_class == "batch"
+    assert cfg.warning == "Test warning"
+    assert cfg.draft_model == "test/draft"
+    assert cfg.draft_quantization == "Q4_K_M"
+    assert cfg.draft_gpu_layers == 20
+    assert cfg.estimated_ttft_s == 2.5
+
+
+def test_inference_config_defaults():
+    """New fields should have sensible defaults for backward compatibility."""
+    cfg = InferenceConfig(
+        backend="llamacpp",
+        model_url="test/model",
+        quant_type="Q4_K_M",
+        n_gpu_layers=25,
+        ctx_size=4096,
+    )
+    assert cfg.tier == "curated"
+    assert cfg.throughput_class == "interactive"
+    assert cfg.warning is None
+    assert cfg.draft_model is None
+    assert cfg.draft_quantization is None
+    assert cfg.draft_gpu_layers is None
+    assert cfg.estimated_ttft_s == 0.0
+
+
 def test_cpu_256_tier():
     """Llama 70B on CPU-only 512GB RAM should get a CPU config with decent quant."""
     hw = HardwareInfo(has_gpu=False, gpu_model=None, vram_gb=0.0, ram_gb=512.0, disk_gb=2000.0)
