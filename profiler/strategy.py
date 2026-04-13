@@ -24,7 +24,6 @@ class InferenceConfig:
     cpu_offload_gb: float = 0.0
     estimated_tps: float = 0.0
     tensor_parallel: int = 1
-    # New fields for progressive fallback
     tier: str = "curated"
     throughput_class: str = "interactive"
     estimated_ttft_s: float = 0.0
@@ -109,7 +108,7 @@ _QUANT_LADDER = [
 _MIN_DISK_HEADROOM_GB = 20.0
 
 
-def _try_gpu_fit(model_id, fp16_size_gb, hw, tier):
+def _try_gpu_fit(model_id, fp16_size_gb, hw):
     """Tier 2: Try to fit model on GPU with quantization + partial offload."""
     vram = hw.vram_gb
     ram = hw.ram_gb
@@ -202,8 +201,7 @@ def _fallback_strategy(model_id: str, hw: HardwareInfo) -> InferenceConfig:
 
     # Tier 2: Try GPU fit
     if hw.has_gpu:
-        tier = _select_hw_tier(hw)
-        config = _try_gpu_fit(model_id, fp16_size_gb, hw, tier)
+        config = _try_gpu_fit(model_id, fp16_size_gb, hw)
         if config is not None:
             return config
 

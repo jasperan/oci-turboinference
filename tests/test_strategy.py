@@ -137,15 +137,6 @@ def test_tighter_matching_exact_preferred():
     assert "unsloth/Qwen3.5-27B-GGUF" == cfg.model_url
 
 
-def test_partial_match_prefers_exact():
-    """'Qwen/Qwen3.5-27B' should match the 27B entry, not the Jackrong distilled variant."""
-    cfg = pick_strategy("Qwen/Qwen3.5-27B", _hw_a10())
-    assert isinstance(cfg, InferenceConfig)
-    # Must NOT pick the Jackrong distilled model URL
-    assert "Jackrong" not in cfg.model_url
-    assert "unsloth/Qwen3.5-27B-GGUF" == cfg.model_url
-
-
 def test_gpu_64_tier_fallback():
     """2x A10 (48GB) should get gpu_64 tier for a 27B model."""
     cfg = pick_strategy("some-org/unknown-27B-model", _hw_2xa10())
