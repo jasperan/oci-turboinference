@@ -34,6 +34,17 @@ class InferenceConfig:
     draft_gpu_layers: int | None = None
 
 
+def classify_throughput(tok_s: float) -> str:
+    """Classify tokens/sec into a human-readable throughput tier."""
+    if tok_s >= 5.0:
+        return "interactive"
+    if tok_s >= 1.0:
+        return "batch"
+    if tok_s >= 0.1:
+        return "offline"
+    return "glacial"
+
+
 @functools.lru_cache(maxsize=1)
 def _load_curated_models() -> dict:
     """Load the curated_models.yaml file and return parsed dict (cached)."""
@@ -84,117 +95,135 @@ def _estimate_model_size_gb(model_id: str) -> float:
     return 14.0  # default guess: 7B model fp16
 
 
-def _fallback_strategy(model_id: str, hw: HardwareInfo) -> InferenceConfig:
-    """Generate a best-effort config for models not in the curated table."""
-    size_gb = _estimate_model_size_gb(model_id)
-    tier = _select_hw_tier(hw)
+# Quantization ladder from highest quality to most aggressive.
+# Each entry: (name, compression_ratio_vs_fp16)
+_QUANT_LADDER = [
+    ("fp16", 1.0),
+    ("AWQ", 4.0),
+    ("Q4_K_M", 3.56),
+    ("IQ4_XS", 3.76),
+    ("IQ2_XXS", 6.4),
+    ("IQ1_S", 10.67),
+]
 
-    # Multi-GPU / large VRAM tiers (48GB+)
-    if tier in ("gpu_192", "gpu_96", "gpu_64"):
-        tp = hw.gpu_count if hw.gpu_count > 1 else 1
-        # Model fits entirely on GPU at fp16
-        if size_gb <= hw.vram_gb * 0.9:
-            return InferenceConfig(
-                backend="vllm",
-                model_url=model_id,
-                quant_type="fp16",
-                n_gpu_layers=-1,
-                ctx_size=32768 if hw.vram_gb >= 150 else 16384,
-                estimated_tps=50.0,
-                tensor_parallel=tp,
-            )
-        # Model fits with AWQ quantization (~4x compression)
-        if size_gb * 0.25 <= hw.vram_gb * 0.9:
-            return InferenceConfig(
-                backend="vllm",
-                model_url=model_id,
-                quant_type="AWQ",
-                n_gpu_layers=-1,
-                ctx_size=16384,
-                estimated_tps=40.0,
-                tensor_parallel=tp,
-            )
-        # Larger models: llamacpp with partial offload
-        offload = max(0.0, size_gb - hw.vram_gb)
-        ratio = min(1.0, hw.vram_gb / size_gb) if size_gb > 0 else 0.5
-        gpu_layers = int(ratio * 80)
-        return InferenceConfig(
-            backend="llamacpp",
-            model_url=model_id,
-            quant_type="Q4_K_M" if size_gb < hw.vram_gb * 3 else "IQ2_XXS",
-            n_gpu_layers=gpu_layers,
-            ctx_size=8192,
-            cpu_offload_gb=round(offload, 1),
-            estimated_tps=max(2.0, 30.0 * ratio),
-        )
+_MIN_DISK_HEADROOM_GB = 20.0
 
-    if tier == "gpu_a10":
-        # Small models fit entirely on GPU with vllm
-        if size_gb <= hw.vram_gb * 0.9:
-            return InferenceConfig(
-                backend="vllm",
-                model_url=model_id,
-                quant_type="AWQ",
-                n_gpu_layers=-1,
-                ctx_size=16384,
-                estimated_tps=30.0,
-            )
-        # Larger models: llamacpp with partial offload
-        offload = max(0.0, size_gb - hw.vram_gb)
-        # Estimate layers: more VRAM = more layers on GPU
-        ratio = min(1.0, hw.vram_gb / size_gb) if size_gb > 0 else 0.5
-        gpu_layers = int(ratio * 60)
-        return InferenceConfig(
-            backend="llamacpp",
-            model_url=model_id,
-            quant_type="IQ4_XS" if size_gb < 80 else "IQ2_XXS",
-            n_gpu_layers=gpu_layers,
-            ctx_size=4096,
-            cpu_offload_gb=round(offload, 1),
-            estimated_tps=max(0.5, 20.0 * ratio),
-        )
 
-    if tier == "gpu_small":
-        # Small GPU (T4 16GB, RTX 3060 12GB): more aggressive quant than gpu_a10
-        if size_gb <= hw.vram_gb * 0.8:
-            return InferenceConfig(
-                backend="llamacpp",
-                model_url=model_id,
-                quant_type="Q4_K_M",
-                n_gpu_layers=-1,
-                ctx_size=8192,
-                estimated_tps=20.0,
-            )
-        # Partial offload with aggressive quantization
-        offload = max(0.0, size_gb - hw.vram_gb)
-        ratio = min(1.0, hw.vram_gb / size_gb) if size_gb > 0 else 0.3
-        gpu_layers = int(ratio * 40)
-        return InferenceConfig(
-            backend="llamacpp",
-            model_url=model_id,
-            quant_type="IQ2_XXS" if size_gb < 40 else "IQ1_S",
-            n_gpu_layers=gpu_layers,
-            ctx_size=2048 if size_gb > 60 else 4096,
-            cpu_offload_gb=round(offload, 1),
-            estimated_tps=max(0.3, 12.0 * ratio),
-        )
+def _try_gpu_fit(model_id, fp16_size_gb, hw, tier):
+    """Tier 2: Try to fit model on GPU with quantization + partial offload."""
+    vram = hw.vram_gb
+    ram = hw.ram_gb
+    tp = hw.gpu_count if hw.gpu_count > 1 else 1
 
-    # CPU-only tiers
-    available_ram = hw.ram_gb * 0.85  # leave headroom
-    if size_gb * 0.3 <= available_ram:
-        quant = "Q4_K_M"
-    elif size_gb * 0.2 <= available_ram:
-        quant = "Q2_K"
+    for quant, ratio in _QUANT_LADDER:
+        quant_size = fp16_size_gb / ratio
+
+        # Fits entirely on GPU?
+        if quant_size <= vram * 0.9:
+            backend = "vllm" if quant in ("fp16", "AWQ") else "llamacpp"
+            ctx = 32768 if vram >= 150 else 16384 if vram >= 48 else 8192
+            tps = 50.0 if quant == "fp16" else 40.0 if quant == "AWQ" else 25.0
+            return InferenceConfig(
+                backend=backend, model_url=model_id, quant_type=quant,
+                n_gpu_layers=-1, ctx_size=ctx, estimated_tps=tps,
+                tensor_parallel=tp, tier="auto_fit",
+                throughput_class=classify_throughput(tps),
+            )
+
+        # Fits with partial CPU offload?
+        available_ram = ram * 0.85
+        if quant_size <= vram + available_ram:
+            offload = max(0.0, quant_size - vram)
+            ratio_on_gpu = min(1.0, vram / quant_size) if quant_size > 0 else 0.5
+            max_layers = 80 if vram >= 48 else 60 if vram >= 20 else 40
+            gpu_layers = int(ratio_on_gpu * max_layers)
+            ctx = 4096 if quant_size > 60 else 8192
+            tps = max(0.5, 30.0 * ratio_on_gpu * (ratio / 4.0))
+            return InferenceConfig(
+                backend="llamacpp", model_url=model_id, quant_type=quant,
+                n_gpu_layers=gpu_layers, ctx_size=ctx,
+                cpu_offload_gb=round(offload, 1), estimated_tps=round(tps, 1),
+                tensor_parallel=tp, tier="auto_fit",
+                throughput_class=classify_throughput(tps),
+            )
+
+    return None
+
+
+def _try_cpu_only(model_id, fp16_size_gb, hw):
+    """Tier 3: Pure CPU with quantization."""
+    available_ram = hw.ram_gb * 0.85
+    for quant, ratio in _QUANT_LADDER:
+        quant_size = fp16_size_gb / ratio
+        if quant_size <= available_ram:
+            tps = min(10.0, max(0.3, 8.0 * (available_ram / max(quant_size, 1)) * 0.5))
+            ctx = 4096 if quant_size > 100 else 8192
+            return InferenceConfig(
+                backend="llamacpp", model_url=model_id, quant_type=quant,
+                n_gpu_layers=0, ctx_size=ctx, estimated_tps=round(tps, 1),
+                tier="cpu_only", throughput_class=classify_throughput(tps),
+                warning="CPU-only mode: no GPU acceleration. Suitable for batch workloads.",
+            )
+    return None
+
+
+def _try_layer_stream(model_id, fp16_size_gb, hw):
+    """Tier 4: Layer streaming - load one layer at a time from disk."""
+    min_disk = fp16_size_gb + _MIN_DISK_HEADROOM_GB
+    if hw.disk_gb < min_disk:
+        return None
+
+    if hw.ram_gb > fp16_size_gb * 1.1:
+        seconds_per_token = fp16_size_gb / 12.0
     else:
-        quant = "IQ1_S"
+        seconds_per_token = fp16_size_gb / 3.0
+    tps = round(max(0.01, 1.0 / seconds_per_token if seconds_per_token > 0 else 0.01), 3)
+    ctx = 2048 if fp16_size_gb > 200 else 4096
 
     return InferenceConfig(
-        backend="llamacpp",
-        model_url=model_id,
-        quant_type=quant,
-        n_gpu_layers=0,
-        ctx_size=4096 if size_gb > 100 else 8192,
-        estimated_tps=max(0.3, 10.0 * (available_ram / max(size_gb, 1))),
+        backend="layer_stream", model_url=model_id, quant_type="fp16",
+        n_gpu_layers=0, ctx_size=ctx, estimated_tps=tps,
+        estimated_ttft_s=round(1.0 / tps, 1) if tps > 0 else 999.0,
+        tier="layer_stream", throughput_class=classify_throughput(tps),
+        warning="Layer streaming mode: very slow, suitable for batch/offline use only.",
+    )
+
+
+def _fallback_strategy(model_id: str, hw: HardwareInfo) -> InferenceConfig:
+    """Generate a best-effort config for models not in the curated table.
+
+    Walks through tiers 2-5 of the progressive fallback chain:
+      Tier 2: Auto-fit with quantization on GPU
+      Tier 3: CPU-only with quantization
+      Tier 4: Layer streaming from disk
+      Tier 5: Impossible (disk too small)
+    """
+    fp16_size_gb = _estimate_model_size_gb(model_id)
+
+    # Tier 2: Try GPU fit
+    if hw.has_gpu:
+        tier = _select_hw_tier(hw)
+        config = _try_gpu_fit(model_id, fp16_size_gb, hw, tier)
+        if config is not None:
+            return config
+
+    # Tier 3: Try CPU-only
+    config = _try_cpu_only(model_id, fp16_size_gb, hw)
+    if config is not None:
+        return config
+
+    # Tier 4: Try layer streaming
+    config = _try_layer_stream(model_id, fp16_size_gb, hw)
+    if config is not None:
+        return config
+
+    # Tier 5: Impossible
+    return InferenceConfig(
+        backend="none", model_url=model_id, quant_type="none",
+        n_gpu_layers=0, ctx_size=0, estimated_tps=0.0,
+        tier="impossible", throughput_class="glacial",
+        warning=f"Cannot run {model_id}: estimated {fp16_size_gb:.0f}GB fp16, "
+                f"insufficient disk ({hw.disk_gb:.0f}GB available).",
     )
 
 
@@ -242,6 +271,7 @@ def pick_strategy(model_id: str, hw: HardwareInfo) -> InferenceConfig:
 
     if best_entry is not None:
         cfg = best_entry
+        tps = cfg.get("estimated_tps", 0)
         config = InferenceConfig(
             backend=cfg["backend"],
             model_url=cfg["model_url"],
@@ -249,7 +279,9 @@ def pick_strategy(model_id: str, hw: HardwareInfo) -> InferenceConfig:
             n_gpu_layers=cfg["n_gpu_layers"],
             ctx_size=cfg["ctx_size"],
             cpu_offload_gb=cfg.get("cpu_offload_gb", 0),
-            estimated_tps=cfg.get("estimated_tps", 0),
+            estimated_tps=tps,
+            tier="curated",
+            throughput_class=classify_throughput(tps),
         )
     else:
         config = _fallback_strategy(model_id, hw)

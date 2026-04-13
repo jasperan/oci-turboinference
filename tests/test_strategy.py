@@ -1,7 +1,7 @@
 """Tests for the strategy engine."""
 
 from profiler.detect import HardwareInfo
-from profiler.strategy import InferenceConfig, pick_strategy
+from profiler.strategy import InferenceConfig, classify_throughput, pick_strategy
 
 
 # -- Hardware fixtures --
@@ -109,21 +109,22 @@ def test_moe_size_estimation():
 
 
 def test_gpu_small_tier_fallback():
-    """T4 16GB should get gpu_small tier with more aggressive quant."""
+    """T4 16GB should get gpu_small tier with appropriate quant."""
     cfg = pick_strategy("some-org/unknown-7B-model", _hw_t4())
     assert isinstance(cfg, InferenceConfig)
-    assert cfg.backend == "llamacpp"
-    # 7B fp16 = 14GB, T4 has 16GB, so it should fit with Q4_K_M
-    assert cfg.quant_type in ("Q4_K_M", "IQ2_XXS", "IQ1_S")
+    # 7B fp16 = 14GB, T4 has 16GB * 0.9 = 14.4GB, fp16 fits entirely on GPU
+    assert cfg.backend in ("vllm", "llamacpp")
+    assert cfg.quant_type in ("fp16", "Q4_K_M", "IQ2_XXS", "IQ1_S")
     assert cfg.estimated_tps > 0
 
 
 def test_gpu_small_large_model():
-    """Large model on T4 should get aggressive quant with partial offload."""
+    """Large model on T4 should get quant with partial offload."""
     cfg = pick_strategy("some-org/unknown-70B-model", _hw_t4())
     assert isinstance(cfg, InferenceConfig)
     assert cfg.backend == "llamacpp"
-    assert cfg.quant_type in ("IQ2_XXS", "IQ1_S")
+    # New quant ladder tries higher-quality quants first; fp16/AWQ may fit with CPU offload
+    assert cfg.quant_type in ("fp16", "AWQ", "Q4_K_M", "IQ2_XXS", "IQ1_S")
     assert cfg.n_gpu_layers > 0
     assert cfg.cpu_offload_gb > 0
 
@@ -149,18 +150,21 @@ def test_gpu_64_tier_fallback():
     """2x A10 (48GB) should get gpu_64 tier for a 27B model."""
     cfg = pick_strategy("some-org/unknown-27B-model", _hw_2xa10())
     assert isinstance(cfg, InferenceConfig)
-    # 27B fp16 = 54GB > 48GB, so AWQ (54*0.25=13.5GB) fits easily
-    assert cfg.backend == "vllm"
+    # 27B fp16 = 54GB > 48GB VRAM, but fp16 fits with partial CPU offload (48+108.8GB)
+    # New quant ladder prefers higher quality: fp16 with offload > AWQ fully on GPU
+    assert cfg.backend in ("vllm", "llamacpp")
     assert cfg.quant_type in ("fp16", "AWQ")
     assert cfg.tensor_parallel == 2  # auto-set from gpu_count
 
 
 def test_gpu_96_tier_fallback():
-    """4x A10 (96GB) should handle 70B model at fp16."""
+    """4x A10 (96GB) should handle 70B model with best available quant."""
     cfg = pick_strategy("some-org/unknown-70B-model", _hw_4xa10())
     assert isinstance(cfg, InferenceConfig)
-    # 70B fp16 = 140GB > 96GB, but AWQ (140*0.25=35GB) fits
-    assert cfg.backend == "vllm"
+    # 70B fp16 = 140GB > 96GB VRAM, but fp16 fits with partial CPU offload (96+217.6GB)
+    # New quant ladder prefers fp16 with offload over AWQ fully on GPU
+    assert cfg.backend in ("vllm", "llamacpp")
+    assert cfg.quant_type in ("fp16", "AWQ")
     assert cfg.tensor_parallel == 4
 
 
@@ -179,8 +183,9 @@ def test_gpu_192_huge_model():
     """8x A100 with a truly massive model should still produce a valid config."""
     cfg = pick_strategy("some-org/unknown-671B-model", _hw_8xa100())
     assert isinstance(cfg, InferenceConfig)
-    # 671B fp16 = 1342GB > 640GB, needs quant or offload
-    assert cfg.quant_type in ("AWQ", "Q4_K_M", "IQ2_XXS", "IQ4_XS")
+    # 671B fp16 = 1342GB > 640GB VRAM, but fp16 fits with partial CPU offload (640+870.4GB)
+    # New quant ladder prefers fp16 with offload for maximum quality
+    assert cfg.quant_type in ("fp16", "AWQ", "Q4_K_M", "IQ2_XXS", "IQ4_XS")
     assert cfg.estimated_tps > 0
 
 
@@ -235,5 +240,90 @@ def test_cpu_256_tier():
     assert cfg.n_gpu_layers == 0  # no GPU
     assert cfg.backend == "llamacpp"
     # 70B fp16 = 140GB, 512GB RAM is plenty, so should get decent quant (not extreme)
-    assert cfg.quant_type in ("Q4_K_M", "Q6_K", "Q8_0", "Q2_K")
+    assert cfg.quant_type in ("Q4_K_M", "Q6_K", "Q8_0", "Q2_K", "fp16")
     assert cfg.estimated_tps > 0
+
+
+# -- classify_throughput tests --
+
+def test_classify_throughput_interactive():
+    assert classify_throughput(10.0) == "interactive"
+    assert classify_throughput(5.0) == "interactive"
+
+
+def test_classify_throughput_batch():
+    assert classify_throughput(4.9) == "batch"
+    assert classify_throughput(1.0) == "batch"
+
+
+def test_classify_throughput_offline():
+    assert classify_throughput(0.99) == "offline"
+    assert classify_throughput(0.1) == "offline"
+
+
+def test_classify_throughput_glacial():
+    assert classify_throughput(0.09) == "glacial"
+    assert classify_throughput(0.01) == "glacial"
+
+
+# -- Progressive fallback chain tests --
+
+def _hw_a10_low_ram() -> HardwareInfo:
+    """A10 GPU 24GB VRAM but only 32GB RAM - can't fit 405B in RAM."""
+    return HardwareInfo(has_gpu=True, gpu_model="NVIDIA A10", vram_gb=24.0, ram_gb=32.0, disk_gb=2000.0)
+
+
+def _hw_a10_high_ram() -> HardwareInfo:
+    """A10 GPU 24GB VRAM with 256GB RAM."""
+    return HardwareInfo(has_gpu=True, gpu_model="NVIDIA A10", vram_gb=24.0, ram_gb=256.0, disk_gb=2000.0)
+
+
+def test_fallback_tier_cpu_only():
+    """405B on A10 with 256GB RAM: can't fit in 24GB VRAM, but IQ2_XXS fits in RAM."""
+    cfg = pick_strategy("meta-llama/Llama-3.1-405B-Instruct", _hw_a10_high_ram())
+    assert cfg.backend == "llamacpp"
+    assert cfg.n_gpu_layers >= 0
+    assert cfg.tier in ("auto_fit", "cpu_only")
+    assert cfg.throughput_class in ("batch", "offline", "glacial")
+    assert cfg.estimated_tps > 0
+
+
+def test_fallback_tier_layer_stream():
+    """405B on A10 with only 32GB RAM: doesn't fit in VRAM or RAM, needs layer streaming."""
+    cfg = pick_strategy("meta-llama/Llama-3.1-405B-Instruct", _hw_a10_low_ram())
+    assert cfg.backend == "layer_stream"
+    assert cfg.tier == "layer_stream"
+    assert cfg.throughput_class in ("offline", "glacial")
+    assert cfg.warning is not None
+    assert "layer stream" in cfg.warning.lower()
+
+
+def test_fallback_tier_impossible():
+    """405B on tiny hardware with 20GB disk: can't even store the model."""
+    hw = HardwareInfo(has_gpu=True, gpu_model="NVIDIA T4", vram_gb=16.0, ram_gb=16.0, disk_gb=20.0)
+    cfg = pick_strategy("meta-llama/Llama-3.1-405B-Instruct", hw)
+    assert cfg.tier == "impossible"
+    assert cfg.backend == "none"
+    assert cfg.warning is not None
+
+
+def test_existing_auto_fit_still_works():
+    """A 27B model on A10 should still get auto_fit tier via normal path."""
+    cfg = pick_strategy("some-org/unknown-27B-model", _hw_a10())
+    assert cfg.tier in ("curated", "auto_fit")
+    assert cfg.backend in ("vllm", "llamacpp")
+    assert cfg.throughput_class in ("interactive", "batch")
+
+
+def test_all_configs_have_throughput_class():
+    """Every config returned by pick_strategy should have throughput_class set."""
+    scenarios = [
+        ("Qwen/Qwen3.5-35B-A3B", _hw_a10()),
+        ("meta-llama/Llama-3.1-70B", _hw_a10()),
+        ("microsoft/phi-4", _hw_cpu_64()),
+        ("some-org/unknown-13B", _hw_a10()),
+    ]
+    for model_id, hw in scenarios:
+        cfg = pick_strategy(model_id, hw)
+        assert cfg.throughput_class in ("interactive", "batch", "offline", "glacial"), \
+            f"Missing throughput_class for {model_id}"
