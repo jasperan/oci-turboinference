@@ -33,3 +33,18 @@ benchmarks/
 # OS
 .DS_Store
 *.swp
+
+# OMC state
+.omc/
+
+# Design/plan docs (local only)
+docs/plans/
+
+# Playwright MCP
+.playwright-mcp/
+
+# Generated content
+content/
+
+# Dogfood output
+dogfood-output/
