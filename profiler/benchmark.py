@@ -10,8 +10,6 @@ from __future__ import annotations
 import argparse
 import json
 import os
-import subprocess
-import sys
 import time
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
@@ -20,13 +18,17 @@ from typing import Optional
 
 import httpx
 
+from profiler import detect
+
 
 # ---------------------------------------------------------------------------
 # Data classes
 # ---------------------------------------------------------------------------
 
 @dataclass
-class HardwareInfo:
+class BenchmarkHardwareSnapshot:
+    """Hardware snapshot recorded in a benchmark report (MB-based)."""
+
     gpu_name: str = ""
     gpu_vram_total_mb: int = 0
     gpu_vram_used_before_mb: int = 0
@@ -34,8 +36,10 @@ class HardwareInfo:
     system_ram_total_mb: int = 0
     system_ram_used_mb: int = 0
 
-    def to_dict(self) -> dict:
-        return asdict(self)
+
+# Backwards-compatible alias: this snapshot was historically called
+# ``HardwareInfo`` here (distinct from ``profiler.detect.HardwareInfo``).
+HardwareInfo = BenchmarkHardwareSnapshot
 
 
 @dataclass
@@ -43,9 +47,6 @@ class ModelInfo:
     model_id: str = ""
     quant_type: str = ""
     backend: str = ""
-
-    def to_dict(self) -> dict:
-        return asdict(self)
 
 
 @dataclass
@@ -72,26 +73,20 @@ class SummaryStats:
     successful_prompts: int = 0
     total_wall_clock_s: float = 0.0
 
-    def to_dict(self) -> dict:
-        return asdict(self)
-
 
 @dataclass
 class BenchmarkRun:
     timestamp: str = ""
-    hardware_info: HardwareInfo = field(default_factory=HardwareInfo)
+    hardware_info: BenchmarkHardwareSnapshot = field(
+        default_factory=BenchmarkHardwareSnapshot
+    )
     model_info: ModelInfo = field(default_factory=ModelInfo)
     prompt_results: list[PromptResult] = field(default_factory=list)
     summary: SummaryStats = field(default_factory=SummaryStats)
 
     def to_dict(self) -> dict:
-        return {
-            "timestamp": self.timestamp,
-            "hardware_info": self.hardware_info.to_dict(),
-            "model_info": self.model_info.to_dict(),
-            "prompt_results": [r.to_dict() for r in self.prompt_results],
-            "summary": self.summary.to_dict(),
-        }
+        # ``dataclasses.asdict`` recurses into nested dataclasses and lists.
+        return asdict(self)
 
     @classmethod
     def from_dict(cls, d: dict) -> "BenchmarkRun":
@@ -168,11 +163,8 @@ STANDARD_PROMPTS: dict[str, str] = {
 # ---------------------------------------------------------------------------
 
 def _run_cmd(cmd: list[str]) -> str:
-    try:
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
-        return result.stdout.strip()
-    except Exception:
-        return ""
+    # Reuse the single hardware-probing subprocess wrapper in detect.py.
+    return detect._run_cmd(cmd) or ""
 
 
 def get_gpu_info() -> tuple[str, int, int]:
@@ -238,6 +230,33 @@ def fetch_model_info(base_url: str) -> ModelInfo:
 # Streaming benchmark
 # ---------------------------------------------------------------------------
 
+def _iter_sse_chunks(lines):
+    """Parse an SSE line stream, yielding ``(content, chunk)`` per data line.
+
+    ``content`` is the delta text for the chunk (``""`` when the chunk has no
+    content), and ``chunk`` is the decoded JSON object. Non-``data:`` lines,
+    heartbeats, and malformed JSON are skipped; iteration stops at ``[DONE]``.
+    This is the single SSE parser shared by ``run_prompt`` and
+    ``parse_streaming_chunks`` so tests exercise the production path.
+    """
+    for line in lines:
+        if not line.startswith("data: "):
+            continue
+        data_str = line[6:]
+        if data_str.strip() == "[DONE]":
+            break
+        try:
+            chunk = json.loads(data_str)
+        except json.JSONDecodeError:
+            continue
+        choices = chunk.get("choices", [])
+        if not choices:
+            continue
+        delta = choices[0].get("delta", {})
+        content = delta.get("content", "") or delta.get("reasoning_content", "")
+        yield content, chunk
+
+
 def run_prompt(
     base_url: str,
     prompt_name: str,
@@ -265,22 +284,7 @@ def run_prompt(
         with httpx.Client(timeout=120) as client:
             with client.stream("POST", url, json=payload) as stream:
                 stream.raise_for_status()
-                for line in stream.iter_lines():
-                    if not line.startswith("data: "):
-                        continue
-                    data_str = line[6:]
-                    if data_str.strip() == "[DONE]":
-                        break
-                    try:
-                        chunk = json.loads(data_str)
-                    except json.JSONDecodeError:
-                        continue
-
-                    choices = chunk.get("choices", [])
-                    if not choices:
-                        continue
-                    delta = choices[0].get("delta", {})
-                    content = delta.get("content", "") or delta.get("reasoning_content", "")
+                for content, chunk in _iter_sse_chunks(stream.iter_lines()):
                     if content:
                         if first_token_time is None:
                             first_token_time = time.perf_counter()
@@ -321,21 +325,7 @@ def parse_streaming_chunks(lines: list[str]) -> tuple[int, list[str]]:
     """
     token_count = 0
     pieces: list[str] = []
-    for line in lines:
-        if not line.startswith("data: "):
-            continue
-        data_str = line[6:]
-        if data_str.strip() == "[DONE]":
-            break
-        try:
-            chunk = json.loads(data_str)
-        except json.JSONDecodeError:
-            continue
-        choices = chunk.get("choices", [])
-        if not choices:
-            continue
-        delta = choices[0].get("delta", {})
-        content = delta.get("content", "") or delta.get("reasoning_content", "")
+    for content, _chunk in _iter_sse_chunks(lines):
         if content:
             token_count += 1
             pieces.append(content)
@@ -456,7 +446,7 @@ def run_benchmark(
     now = datetime.now(timezone.utc)
     run = BenchmarkRun(timestamp=now.strftime("%Y-%m-%d_%H-%M-%S"))
 
-    print(f"[benchmark] Collecting hardware info...")
+    print("[benchmark] Collecting hardware info...")
     run.hardware_info = collect_hardware_info()
 
     print(f"[benchmark] Fetching model info from {base_url}...")

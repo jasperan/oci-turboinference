@@ -49,9 +49,9 @@ The server starts on port 8080 by default. Override with `API_PORT=9000`.
 
 The profiler runs in 3 steps:
 
-1. **Detect hardware.** Reads GPU model/VRAM via `nvidia-smi`, total RAM, and disk space.
+1. **Detect hardware.** Reads GPU model/VRAM via `nvidia-smi`, total RAM, and disk space (`profiler/detect.py`).
 2. **Check curated table.** Looks up the requested model in `curated_models.yaml` (10 pre-tested configs with known-good quant, layer split, and context size).
-3. **Fall back to llmfit.** If the model isn't curated, the profiler calls [llmfit](https://github.com/mozilla-ai/llmfit) (a Rust tool) to estimate memory requirements and pick a viable quant + offload strategy.
+3. **Fall back to estimation.** If the model isn't curated, the strategy engine estimates the model's memory footprint from its parameter count (using active params for MoE models) and walks a progressive fallback chain — GPU fit with quantization, partial CPU offload, then CPU-only — to pick a viable quant + offload strategy (`profiler/strategy.py`).
 
 The output is a single `InferenceConfig` that tells `start-inference.sh` exactly which backend to launch and how.
 
@@ -105,6 +105,20 @@ Pi auto-detects the local inference server and uses it as its backend. You get a
 |  API on :8080      |
 +--------------------+
 ```
+
+## Development
+
+The profiler is a small Python package (`profiler/`) with `httpx` and `pyyaml` as
+its only runtime dependencies, declared in `pyproject.toml`. Use [uv](https://docs.astral.sh/uv/)
+to set up the environment and run the unit tests:
+
+```bash
+uv sync
+uv run python -m pytest tests/ -k "not test_integration"
+```
+
+Integration tests in `tests/test_integration.py` exercise real hardware detection
+and are meant to run only on a provisioned instance.
 
 ## v2 Roadmap
 

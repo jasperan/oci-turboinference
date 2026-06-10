@@ -179,10 +179,11 @@ def _try_layer_stream(model_id, fp16_size_gb, hw):
     tps = round(max(0.01, 1.0 / seconds_per_token if seconds_per_token > 0 else 0.01), 3)
     ctx = 2048 if fp16_size_gb > 200 else 4096
 
+    # tps is already clamped to >= 0.01 above, so the division is always safe.
     return InferenceConfig(
         backend="layer_stream", model_url=model_id, quant_type="fp16",
         n_gpu_layers=0, ctx_size=ctx, estimated_tps=tps,
-        estimated_ttft_s=round(1.0 / tps, 1) if tps > 0 else 999.0,
+        estimated_ttft_s=round(1.0 / tps, 1),
         tier="layer_stream", throughput_class=classify_throughput(tps),
         warning="Layer streaming mode: very slow, suitable for batch/offline use only.",
     )
@@ -238,14 +239,12 @@ def pick_strategy(model_id: str, hw: HardwareInfo) -> InferenceConfig:
     #   1 = exact match on full model ID
     #   2 = exact match on model name (after last "/")
     #   3 = substring containment
-    # At the same priority, prefer the longer curated key (more specific).
-    best_entry = None
-    best_priority = 99
-    best_key_len = 0
-
+    # At the same priority, prefer the longer curated key (more specific);
+    # ties beyond that keep the first match (the enumeration index breaks them).
     model_short = model_id.split("/")[-1].lower()
 
-    for curated_id, entry in curated.items():
+    candidates = []
+    for index, (curated_id, entry) in enumerate(curated.items()):
         tiers = entry.get("tiers", {})
         if tier not in tiers:
             continue
@@ -261,13 +260,10 @@ def pick_strategy(model_id: str, hw: HardwareInfo) -> InferenceConfig:
         else:
             continue
 
-        key_len = len(curated_id)
-        if priority < best_priority or (priority == best_priority and key_len > best_key_len):
-            best_priority = priority
-            best_key_len = key_len
-            best_entry = tiers[tier]
+        candidates.append((priority, -len(curated_id), index, tiers[tier]))
 
-    if best_entry is not None:
+    if candidates:
+        best_entry = min(candidates)[3]
         cfg = best_entry
         tps = cfg.get("estimated_tps", 0)
         config = InferenceConfig(
