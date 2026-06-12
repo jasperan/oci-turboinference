@@ -3,8 +3,8 @@
 import json
 
 from profiler.benchmark import (
+    BenchmarkHardwareSnapshot,
     BenchmarkRun,
-    HardwareInfo,
     ModelInfo,
     PromptResult,
     SummaryStats,
@@ -79,7 +79,7 @@ class TestBenchmarkResultSerialization:
     def _make_run(self) -> BenchmarkRun:
         return BenchmarkRun(
             timestamp="2026-03-29_12-00-00",
-            hardware_info=HardwareInfo(
+            hardware_info=BenchmarkHardwareSnapshot(
                 gpu_name="NVIDIA A10",
                 gpu_vram_total_mb=23028,
                 gpu_vram_used_before_mb=512,

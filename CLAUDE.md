@@ -19,7 +19,7 @@ sudo MODEL_ID="Qwen/Qwen3.5-35B-A3B" INSTALL_PI=false bash scripts/setup.sh
 
 # Run the profiler standalone
 python -c "from profiler.detect import detect_hardware; print(detect_hardware())"
-python -c "from profiler.strategy import pick_strategy; print(pick_strategy('Qwen/Qwen3.5-35B-A3B'))"
+python -c "from profiler.detect import detect_hardware; from profiler.strategy import pick_strategy; print(pick_strategy('Qwen/Qwen3.5-35B-A3B', detect_hardware()))"
 
 # Run the benchmark against a live inference server
 python -m profiler.benchmark --port 8080
@@ -43,10 +43,10 @@ sudo systemctl restart turboinference
 oci-turboinference/
   profiler/
     detect.py            # Hardware detection (GPU count, VRAM sum, RAM, disk)
-    strategy.py          # Strategy engine: curated lookup + llmfit fallback + tensor parallel
-    llmfit_client.py     # Client wrapper for the llmfit Rust binary
+    strategy.py          # Strategy engine: curated lookup + size-estimate fallback + tensor parallel
+    llmfit_client.py     # REST client for the llmfit model-fitting API (localhost:8787)
     benchmark.py         # Benchmark runner: TTFT + tok/s against live server, writes JSON + log
-    curated_models.yaml  # 10 pre-tested model configs across hardware tiers
+    curated_models.yaml  # Pre-tested configs for 10 models across hardware tiers
   scripts/
     setup.sh             # Main orchestrator (calls all install scripts + profiler)
     install-drivers.sh   # NVIDIA driver installation
@@ -77,7 +77,7 @@ oci-turboinference/
 
 ## Architecture Summary
 
-Terraform creates an OCI compute instance with cloud-init. Cloud-init runs `setup.sh`, which installs NVIDIA drivers, llama.cpp, vLLM, and llmfit. The profiler's `detect.py` reads hardware specs, then `strategy.py` looks up the requested model in `curated_models.yaml`. If found, it returns a tested config. If not, it calls llmfit to estimate memory and pick a viable quant. Finally, `start-inference.sh` launches the chosen backend with an OpenAI-compatible API on port 8080.
+Terraform creates an OCI compute instance with cloud-init. Cloud-init runs `setup.sh`, which installs NVIDIA drivers, llama.cpp, vLLM, and llmfit. The profiler's `detect.py` reads hardware specs, then `strategy.py` looks up the requested model in `curated_models.yaml`. If found, it returns a tested config. If not, `_fallback_strategy` estimates the model's memory footprint from its parameter count (using active params for MoE models) and walks a progressive fallback chain — GPU fit with quantization, partial CPU offload, then CPU-only — to pick a viable quant. Finally, `start-inference.sh` launches the chosen backend with an OpenAI-compatible API on port 8080.
 
 ## Testing
 
@@ -97,13 +97,13 @@ Benchmark output (JSON + .log) lands in `benchmarks/` by default. Existing resul
 
 ## Dependencies
 
-- Python 3.11+
+- Python 3.12+
 - pyyaml (curated model config parsing)
 - httpx (llmfit client HTTP calls and benchmark streaming)
 - Terraform 1.5+ (infrastructure provisioning)
 - Rust toolchain (for building llmfit from source, handled by install-llmfit.sh)
 
-No `pyproject.toml` or `requirements.txt` — dependencies are installed by `setup.sh` on the instance directly.
+Runtime dependencies (`httpx`, `pyyaml`) are declared in `pyproject.toml` and locked in `uv.lock`; use `uv sync` for local development. On a provisioned instance, `setup.sh` installs them directly via `pip`.
 
 ## Gotchas
 

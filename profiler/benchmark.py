@@ -18,7 +18,7 @@ from typing import Optional
 
 import httpx
 
-from profiler import detect
+from profiler.detect import run_cmd
 
 
 # ---------------------------------------------------------------------------
@@ -35,11 +35,6 @@ class BenchmarkHardwareSnapshot:
     gpu_vram_used_after_mb: int = 0
     system_ram_total_mb: int = 0
     system_ram_used_mb: int = 0
-
-
-# Backwards-compatible alias: this snapshot was historically called
-# ``HardwareInfo`` here (distinct from ``profiler.detect.HardwareInfo``).
-HardwareInfo = BenchmarkHardwareSnapshot
 
 
 @dataclass
@@ -92,7 +87,7 @@ class BenchmarkRun:
     def from_dict(cls, d: dict) -> "BenchmarkRun":
         run = cls()
         run.timestamp = d.get("timestamp", "")
-        run.hardware_info = HardwareInfo(**d.get("hardware_info", {}))
+        run.hardware_info = BenchmarkHardwareSnapshot(**d.get("hardware_info", {}))
         run.model_info = ModelInfo(**d.get("model_info", {}))
         run.prompt_results = [PromptResult(**r) for r in d.get("prompt_results", [])]
         run.summary = SummaryStats(**d.get("summary", {}))
@@ -162,18 +157,13 @@ STANDARD_PROMPTS: dict[str, str] = {
 # Hardware helpers
 # ---------------------------------------------------------------------------
 
-def _run_cmd(cmd: list[str]) -> str:
-    # Reuse the single hardware-probing subprocess wrapper in detect.py.
-    return detect._run_cmd(cmd) or ""
-
-
 def get_gpu_info() -> tuple[str, int, int]:
     """Returns (gpu_name, total_vram_mb, used_vram_mb)."""
-    out = _run_cmd([
+    out = run_cmd([
         "nvidia-smi",
         "--query-gpu=name,memory.total,memory.used",
         "--format=csv,noheader,nounits",
-    ])
+    ]) or ""
     if not out:
         return ("N/A", 0, 0)
     parts = out.split("\n")[0].split(",")
@@ -187,7 +177,7 @@ def get_gpu_info() -> tuple[str, int, int]:
 
 def get_ram_info() -> tuple[int, int]:
     """Returns (total_mb, used_mb)."""
-    out = _run_cmd(["free", "-m"])
+    out = run_cmd(["free", "-m"]) or ""
     for line in out.split("\n"):
         if line.startswith("Mem:"):
             parts = line.split()
@@ -195,10 +185,10 @@ def get_ram_info() -> tuple[int, int]:
     return (0, 0)
 
 
-def collect_hardware_info() -> HardwareInfo:
+def collect_hardware_info() -> BenchmarkHardwareSnapshot:
     gpu_name, gpu_total, gpu_used = get_gpu_info()
     ram_total, ram_used = get_ram_info()
-    return HardwareInfo(
+    return BenchmarkHardwareSnapshot(
         gpu_name=gpu_name,
         gpu_vram_total_mb=gpu_total,
         gpu_vram_used_before_mb=gpu_used,
@@ -519,7 +509,15 @@ def main() -> None:
     args = parser.parse_args()
 
     base_url = args.base_url or f"http://localhost:{args.port}"
-    prompt_names = [p.strip() for p in args.prompts.split(",")]
+    prompt_names = [p.strip() for p in args.prompts.split(",") if p.strip()]
+
+    unknown = [n for n in prompt_names if n not in STANDARD_PROMPTS]
+    if unknown or not prompt_names:
+        valid = ", ".join(STANDARD_PROMPTS)
+        parser.error(
+            f"unknown prompt name(s): {', '.join(unknown) or '(none given)'}. "
+            f"Valid names are: {valid}"
+        )
 
     run_benchmark(base_url, prompt_names, args.output_dir)
 

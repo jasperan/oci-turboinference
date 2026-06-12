@@ -15,10 +15,10 @@ class HardwareInfo:
     vram_gb: float
     ram_gb: float
     disk_gb: float
-    gpu_count: int = 1
+    gpu_count: int = 0
 
 
-def _run_cmd(cmd: list[str]) -> str | None:
+def run_cmd(cmd: list[str]) -> str | None:
     """Run a shell command and return stdout, or None on failure."""
     try:
         result = subprocess.run(
@@ -33,7 +33,7 @@ def _run_cmd(cmd: list[str]) -> str | None:
 
 def _parse_vram() -> tuple[str | None, float, int]:
     """Query nvidia-smi for GPU model name, total VRAM in GB, and GPU count."""
-    output = _run_cmd(
+    output = run_cmd(
         ["nvidia-smi", "--query-gpu=name,memory.total", "--format=csv,noheader,nounits"]
     )
     if output is None:
@@ -67,7 +67,7 @@ def _parse_vram() -> tuple[str | None, float, int]:
 
 def _parse_ram() -> float:
     """Get total system RAM in GB from `free -m`."""
-    output = _run_cmd(["free", "-m"])
+    output = run_cmd(["free", "-m"])
     if output is None:
         return 0.0
 
@@ -84,7 +84,7 @@ def _parse_ram() -> float:
 
 def _parse_disk() -> float:
     """Get available disk space in GB from `df` on root filesystem."""
-    output = _run_cmd(["df", "--output=avail", "-BG", "/"])
+    output = run_cmd(["df", "--output=avail", "-BG", "/"])
     if output is None:
         return 0.0
 

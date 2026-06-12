@@ -28,9 +28,6 @@ class InferenceConfig:
     throughput_class: str = "interactive"
     estimated_ttft_s: float = 0.0
     warning: str | None = None
-    draft_model: str | None = None
-    draft_quantization: str | None = None
-    draft_gpu_layers: int | None = None
 
 
 def classify_throughput(tok_s: float) -> str:
@@ -112,7 +109,7 @@ def _try_gpu_fit(model_id, fp16_size_gb, hw):
     """Tier 2: Try to fit model on GPU with quantization + partial offload."""
     vram = hw.vram_gb
     ram = hw.ram_gb
-    tp = hw.gpu_count if hw.gpu_count > 1 else 1
+    tp = max(hw.gpu_count, 1)
 
     for quant, ratio in _QUANT_LADDER:
         quant_size = fp16_size_gb / ratio

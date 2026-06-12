@@ -50,7 +50,7 @@ The server starts on port 8080 by default. Override with `API_PORT=9000`.
 The profiler runs in 3 steps:
 
 1. **Detect hardware.** Reads GPU model/VRAM via `nvidia-smi`, total RAM, and disk space (`profiler/detect.py`).
-2. **Check curated table.** Looks up the requested model in `curated_models.yaml` (10 pre-tested configs with known-good quant, layer split, and context size).
+2. **Check curated table.** Looks up the requested model in `curated_models.yaml` (10 pre-tested models, each with per-tier known-good quant, layer split, and context size).
 3. **Fall back to estimation.** If the model isn't curated, the strategy engine estimates the model's memory footprint from its parameter count (using active params for MoE models) and walks a progressive fallback chain — GPU fit with quantization, partial CPU offload, then CPU-only — to pick a viable quant + offload strategy (`profiler/strategy.py`).
 
 The output is a single `InferenceConfig` that tells `start-inference.sh` exactly which backend to launch and how.

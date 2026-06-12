@@ -22,7 +22,7 @@ Mem:          64000       12345       40000        1234       11655       50000
 Swap:          8191        1234        6957"""
 
 
-@patch("profiler.detect._run_cmd")
+@patch("profiler.detect.run_cmd")
 def test_detect_hardware_with_gpu(mock_run_cmd):
     """GPU present: nvidia-smi returns A10 with ~24GB VRAM."""
 
@@ -46,7 +46,7 @@ def test_detect_hardware_with_gpu(mock_run_cmd):
     assert info.disk_gb > 100.0
 
 
-@patch("profiler.detect._run_cmd")
+@patch("profiler.detect.run_cmd")
 def test_detect_hardware_cpu_only(mock_run_cmd):
     """No GPU: nvidia-smi fails, system still reports RAM/disk."""
 
@@ -69,7 +69,7 @@ def test_detect_hardware_cpu_only(mock_run_cmd):
     assert info.ram_gb > 60.0
 
 
-@patch("profiler.detect._run_cmd")
+@patch("profiler.detect.run_cmd")
 def test_detect_hardware_empty_nvidia_output(mock_run_cmd):
     """nvidia-smi returns empty string (not None). Should treat as no GPU."""
 
@@ -90,7 +90,7 @@ def test_detect_hardware_empty_nvidia_output(mock_run_cmd):
     assert info.vram_gb == 0.0
 
 
-@patch("profiler.detect._run_cmd")
+@patch("profiler.detect.run_cmd")
 def test_detect_hardware_malformed_nvidia_output(mock_run_cmd):
     """nvidia-smi returns garbled text. Should handle gracefully."""
 
@@ -117,7 +117,7 @@ NVIDIA_SMI_MULTI_GPU = "NVIDIA A10, 24576\nNVIDIA A10, 24576"
 NVIDIA_SMI_4X_A10 = "NVIDIA A10, 24576\nNVIDIA A10, 24576\nNVIDIA A10, 24576\nNVIDIA A10, 24576"
 
 
-@patch("profiler.detect._run_cmd")
+@patch("profiler.detect.run_cmd")
 def test_detect_hardware_multi_gpu(mock_run_cmd):
     """nvidia-smi returns two GPU lines. Should sum VRAM and report gpu_count=2."""
 
@@ -140,7 +140,7 @@ def test_detect_hardware_multi_gpu(mock_run_cmd):
     assert info.gpu_count == 2
 
 
-@patch("profiler.detect._run_cmd")
+@patch("profiler.detect.run_cmd")
 def test_detect_hardware_4x_gpu(mock_run_cmd):
     """4x A10 GPUs. Should sum to ~96GB VRAM with gpu_count=4."""
 
