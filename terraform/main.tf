@@ -64,8 +64,10 @@ resource "oci_core_security_list" "main" {
   }
 
   ingress_security_rules {
+    # SSH has its own CIDR: narrowing who can call the API must not also change who
+    # can log in, and vice versa.
     protocol = "6" # TCP
-    source   = var.api_allowed_cidr
+    source   = var.ssh_allowed_cidr
 
     tcp_options {
       min = 22

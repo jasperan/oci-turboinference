@@ -97,9 +97,12 @@ systemctl restart nginx
 echo "$LOG_PREFIX Nginx started and enabled."
 
 echo "$LOG_PREFIX ============================================"
-echo "$LOG_PREFIX API Key: $API_KEY"
+# The key is written to $KEY_FILE with mode 600 above. It is deliberately NOT echoed:
+# this script runs from cloud-init (terraform/cloud-init.yaml -> scripts/setup.sh -> here),
+# whose stdout is persisted in the instance's cloud-init logs and readable from the console.
+echo "$LOG_PREFIX API Key: stored in $KEY_FILE (not printed here - cloud-init output is logged)"
 echo "$LOG_PREFIX Proxy URL: http://localhost:${PROXY_PORT}"
 echo "$LOG_PREFIX Backend: http://localhost:${API_PORT}"
 echo "$LOG_PREFIX Key file: $KEY_FILE"
 echo "$LOG_PREFIX ============================================"
-echo "$LOG_PREFIX Usage: curl -H 'Authorization: Bearer $API_KEY' http://<host>:${PROXY_PORT}/v1/models"
+echo "$LOG_PREFIX Usage: curl -H \"Authorization: Bearer $(cat $KEY_FILE)\" http://<host>:${PROXY_PORT}/v1/models"
