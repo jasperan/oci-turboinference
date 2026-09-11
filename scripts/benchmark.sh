@@ -49,7 +49,7 @@ mkdir -p "$OUTPUT_DIR"
 CONFIG_FILE="${CONFIG_FILE:-/opt/turboinference/inference-config.json}"
 if [ -f "$CONFIG_FILE" ]; then
     echo "$LOG_PREFIX Reading config from $CONFIG_FILE"
-    MODEL_ID=$(python3 -c "import json; c=json.load(open('$CONFIG_FILE')); print(c.get('model_url','unknown'))" 2>/dev/null || echo "unknown")
+    MODEL_ID=$(python3 -c "import json,sys; c=json.load(open(sys.argv[1])); print(c.get('model_url','unknown'))" "$CONFIG_FILE" 2>/dev/null || echo "unknown")
     echo "$LOG_PREFIX Model from config: $MODEL_ID"
 else
     echo "$LOG_PREFIX No inference-config.json found, model info will come from /v1/models"

@@ -82,5 +82,5 @@ variable "boot_volume_gb" {
 variable "enable_api_auth" {
   type        = bool
   description = "Enable API key authentication via nginx reverse proxy."
-  default     = false
+  default     = true
 }

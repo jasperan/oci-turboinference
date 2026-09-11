@@ -73,13 +73,19 @@ resource "oci_core_security_list" "main" {
     }
   }
 
-  ingress_security_rules {
-    protocol = "6" # TCP
-    source   = var.api_allowed_cidr
+  dynamic "ingress_security_rules" {
+    # When API auth is enabled the only intended entry point is the nginx proxy on
+    # 8443, so the raw inference port must not stay open to api_allowed_cidr —
+    # otherwise the key requirement can be bypassed by calling the port directly.
+    for_each = var.enable_api_auth ? [] : [1]
+    content {
+      protocol = "6" # TCP
+      source   = var.api_allowed_cidr
 
-    tcp_options {
-      min = var.api_port
-      max = var.api_port
+      tcp_options {
+        min = var.api_port
+        max = var.api_port
+      }
     }
   }
 
