@@ -165,7 +165,7 @@ variables:
     type: boolean
     title: "Enable API Authentication"
     description: "Enable API key authentication via nginx reverse proxy on port 8443."
-    default: false
+    default: true
 
   install_pi_agent:
     type: boolean

@@ -55,6 +55,12 @@ variable "ssh_public_key" {
   description = "SSH public key for instance access."
 }
 
+variable "ssh_allowed_cidr" {
+  type        = string
+  default     = "0.0.0.0/0"
+  description = "CIDR allowed to reach SSH (port 22). Separate from api_allowed_cidr so SSH can be narrowed to an operator address without changing who may call the API. Defaults to the historical value; set it to your own address."
+}
+
 variable "api_allowed_cidr" {
   type        = string
   default     = "0.0.0.0/0"
@@ -82,5 +88,5 @@ variable "boot_volume_gb" {
 variable "enable_api_auth" {
   type        = bool
   description = "Enable API key authentication via nginx reverse proxy."
-  default     = false
+  default     = true
 }

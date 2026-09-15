@@ -25,5 +25,8 @@ output "instance_type" {
 
 output "api_endpoint_auth" {
   description = "Authenticated API endpoint (if auth enabled)."
-  value       = var.enable_api_auth ? "http://${oci_core_instance.inference.public_ip}:8443/v1 (requires API key from /opt/turboinference/api-key)" : "N/A (auth disabled)"
+  # Plaintext on purpose until a certificate exists: the endpoint is HTTP, so the API key
+  # travels in the clear. Terminate TLS here (see scripts/install-nginx-auth.sh) before
+  # calling this over an untrusted network.
+  value       = var.enable_api_auth ? "http://${oci_core_instance.inference.public_ip}:8443/v1 (requires API key from /opt/turboinference/api-key; PLAINTEXT - enable TLS before use over an untrusted network)" : "N/A (auth disabled)"
 }
