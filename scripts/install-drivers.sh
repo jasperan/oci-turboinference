@@ -67,9 +67,14 @@ elif command -v apt &>/dev/null; then
 
     echo "$LOG_PREFIX Using CUDA repo for ${DISTRO}/${ARCH}"
     apt-get install -y wget
+    # Download into a private temporary file: a fixed path under world-writable /tmp can be
+    # pre-created by a local user, which either truncates a file root cannot otherwise write
+    # or aborts the bootstrap when the write is refused.
+    KEYRING_DEB="$(mktemp "${TMPDIR:-/tmp}/cuda-keyring.XXXXXXXX.deb")"
+    trap 'rm -f "$KEYRING_DEB"' EXIT
     wget -q "https://developer.download.nvidia.com/compute/cuda/repos/${DISTRO}/${ARCH}/cuda-keyring_1.1-1_all.deb" \
-        -O /tmp/cuda-keyring.deb
-    dpkg -i /tmp/cuda-keyring.deb
+        -O "$KEYRING_DEB"
+    dpkg -i "$KEYRING_DEB"
     apt-get update
     apt-get install -y cuda-toolkit-12-4 nvidia-driver-550
 else

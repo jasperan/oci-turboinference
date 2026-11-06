@@ -32,9 +32,11 @@ elif command -v dnf &>/dev/null; then
     dnf install -y gcc gcc-c++ pkg-config openssl-devel git
 fi
 
-# Clone and build
-LLMFIT_DIR="/tmp/llmfit-build"
-rm -rf "$LLMFIT_DIR"
+# Clone and build. The build directory must be unpredictable and root-owned: a fixed path
+# inside world-writable /tmp can be re-created by a local user between `rm -rf` and the
+# clone, and whoever owns the directory controls what `cargo build` compiles as root.
+LLMFIT_DIR="$(mktemp -d "${TMPDIR:-/tmp}/llmfit-build.XXXXXXXX")"
+trap 'rm -rf "$LLMFIT_DIR"' EXIT
 echo "$LOG_PREFIX Cloning llmfit..."
 git clone https://github.com/AlexsJones/llmfit "$LLMFIT_DIR"
 cd "$LLMFIT_DIR"
@@ -47,8 +49,5 @@ cp target/release/llmfit /usr/local/bin/llmfit
 chmod +x /usr/local/bin/llmfit
 ln -sf /usr/local/bin/llmfit /usr/bin/llmfit
 echo "$LOG_PREFIX Installed llmfit to /usr/local/bin/llmfit (symlinked to /usr/bin/llmfit)"
-
-# Cleanup
-rm -rf "$LLMFIT_DIR"
 
 echo "$LOG_PREFIX llmfit installed successfully."
