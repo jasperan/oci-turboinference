@@ -5,7 +5,8 @@ LOG_PREFIX="[nginx-auth]"
 API_PORT="${API_PORT:-8080}"
 PROXY_PORT="${PROXY_PORT:-8443}"
 API_KEY="${API_KEY:-}"
-KEY_FILE="/opt/turboinference/api-key"
+KEY_FILE="${KEY_FILE:-/opt/turboinference/api-key}"
+CONF_FILE="${CONF_FILE:-/etc/nginx/conf.d/turboinference.conf}"
 
 echo "$LOG_PREFIX Installing nginx reverse proxy with API key authentication..."
 
@@ -39,8 +40,11 @@ echo "$API_KEY" > "$KEY_FILE"
 chmod 600 "$KEY_FILE"
 echo "$LOG_PREFIX API key saved to $KEY_FILE"
 
-# Write nginx config
-cat > /etc/nginx/conf.d/turboinference.conf <<NGINX_EOF
+# Write nginx config. This file embeds the same API key as $KEY_FILE, so it gets the same
+# treatment: a plain `cat >` inherits the process umask and lands 0644, which makes the only
+# API credential readable by every local account and by anything that copies the boot volume.
+# nginx reads its configuration as root, so 0600 is enough for it to start.
+( umask 077; cat > "$CONF_FILE" <<NGINX_EOF
 map \$http_authorization \$auth_valid {
     default                    0;
     "Bearer ${API_KEY}"        1;
@@ -84,8 +88,9 @@ server {
     }
 }
 NGINX_EOF
+)
 
-echo "$LOG_PREFIX Nginx config written to /etc/nginx/conf.d/turboinference.conf"
+echo "$LOG_PREFIX Nginx config written to $CONF_FILE"
 
 # Test nginx config
 nginx -t
@@ -105,4 +110,6 @@ echo "$LOG_PREFIX Proxy URL: http://localhost:${PROXY_PORT}"
 echo "$LOG_PREFIX Backend: http://localhost:${API_PORT}"
 echo "$LOG_PREFIX Key file: $KEY_FILE"
 echo "$LOG_PREFIX ============================================"
-echo "$LOG_PREFIX Usage: curl -H \"Authorization: Bearer $(cat $KEY_FILE)\" http://<host>:${PROXY_PORT}/v1/models"
+# The usage example prints the command, not the key: `$(cat $KEY_FILE)` stays literal (escaped),
+# so the operator copies a substitution instead of reading the key out of the boot log.
+echo "$LOG_PREFIX Usage: curl -H \"Authorization: Bearer \$(cat $KEY_FILE)\" http://<host>:${PROXY_PORT}/v1/models"
